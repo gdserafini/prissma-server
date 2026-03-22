@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: prissma-server
+  datasource:
+    url: jdbc:postgresql://localhost:5432/prissma
+    username: prissma
+    password: prissma
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false

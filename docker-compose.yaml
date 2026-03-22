@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: prissma
+      POSTGRES_USER: prissma
+      POSTGRES_PASSWORD: prissma
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - prissma-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prissma -d prissma"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/prissma
+      SPRING_DATASOURCE_USERNAME: prissma
+      SPRING_DATASOURCE_PASSWORD: prissma
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - prissma-network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  prissma-network:
+    driver: bridge
