@@ -17,8 +17,7 @@ public class UserValidator {
 
     public void validateEmail(String email) {
         if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Invalid email format. Expected: aaaa@aaaaa.qualquer");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email formatW");
         }
     }
 
