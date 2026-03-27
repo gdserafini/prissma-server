@@ -1,6 +1,7 @@
 package br.pucpr.prissma_server.users;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -40,6 +41,13 @@ public class UserValidator {
         if (!PASSWORD_SPECIAL.matcher(password).find()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Password must contain at least one special character");
+        }
+    }
+
+    public void validateOwnership(Long id, Authentication auth) {
+        Long loggedUserId = (Long) auth.getPrincipal();
+        if (!loggedUserId.equals(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only modify your own account");
         }
     }
 }

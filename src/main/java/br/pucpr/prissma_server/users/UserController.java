@@ -1,6 +1,8 @@
 package br.pucpr.prissma_server.users;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -10,35 +12,43 @@ import java.util.List;
 public class UserController {
 
     private final UserService service;
+    private final UserValidator validator;
 
-    public UserController(UserService service) {
+    public UserController(UserService service, UserValidator validator) {
         this.service = service;
+        this.validator = validator;
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public User createUser(@RequestBody User user) {
-        return service.createUser(user);
+    public ResponseEntity<UserResponse> createUser(@RequestBody UserRequest request) {
+        User user = service.createUser(request.toUser());
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(user));
     }
 
     @GetMapping
-    public List<User> getUsers() {
-        return service.getUsers();
+    public ResponseEntity<List<UserResponse>> getUsers() {
+        List<UserResponse> users = service.getUsers().stream().map(UserResponse::from).toList();
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{id}")
-    public User getUserById(@PathVariable Long id) {
-        return service.getUserById(id);
+    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
+        return ResponseEntity.ok(UserResponse.from(service.getUserById(id)));
     }
 
     @PutMapping("/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody User user) {
-        return service.updateUser(id, user);
+    public ResponseEntity<UserResponse> updateUser(@PathVariable Long id,
+                                                   @RequestBody UserRequest request,
+                                                   Authentication auth) {
+        validator.validateOwnership(id, auth);
+        User user = service.updateUser(id, request.toUser());
+        return ResponseEntity.ok(UserResponse.from(user));
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id, Authentication auth) {
+        validator.validateOwnership(id, auth);
         service.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }
