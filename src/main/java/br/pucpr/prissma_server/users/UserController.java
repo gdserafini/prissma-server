@@ -31,6 +31,12 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getMe(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(UserResponse.from(service.getUserById(userId)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(UserResponse.from(service.getUserById(id)));
