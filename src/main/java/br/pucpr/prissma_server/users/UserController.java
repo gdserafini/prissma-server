@@ -36,12 +36,12 @@ public class UserController {
         return ResponseEntity.ok(UserResponse.from(service.getUserById(id)));
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<UserResponse> updateUser(@PathVariable Long id,
                                                    @RequestBody UserRequest request,
                                                    Authentication auth) {
         validator.validateOwnership(id, auth);
-        User user = service.updateUser(id, request.toUser());
+        User user = service.updateUser(id, request);
         return ResponseEntity.ok(UserResponse.from(user));
     }
 

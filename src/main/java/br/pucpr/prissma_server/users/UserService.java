@@ -1,6 +1,7 @@
 package br.pucpr.prissma_server.users;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -11,10 +12,14 @@ public class UserService {
 
     private final UserRepository repository;
     private final UserValidator validator;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repository, UserValidator validator) {
+    public UserService(UserRepository repository,
+                       UserValidator validator,
+                       PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.validator = validator;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public User createUser(User user) {
@@ -27,6 +32,7 @@ public class UserService {
         if (user.getRole() == null) {
             user.setRole(Role.USER);
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return repository.save(user);
     }
 
@@ -39,16 +45,24 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    public User updateUser(Long id, User updatedUser) {
-        validator.validateEmail(updatedUser.getEmail());
-        validator.validatePassword(updatedUser.getPassword());
+    public User updateUser(Long id, UserRequest request) {
         User user = getUserById(id);
-        user.setName(updatedUser.getName());
-        user.setEmail(updatedUser.getEmail());
-        user.setPassword(updatedUser.getPassword());
-        if (updatedUser.getRole() != null && updatedUser.getRole() != Role.ADMIN) {
-            user.setRole(updatedUser.getRole());
+
+        if (request.name() != null) {
+            user.setName(request.name());
         }
+        if (request.email() != null) {
+            validator.validateEmail(request.email());
+            user.setEmail(request.email());
+        }
+        if (request.password() != null) {
+            validator.validatePassword(request.password());
+            user.setPassword(passwordEncoder.encode(request.password()));
+        }
+        if (request.role() != null && request.role() != Role.ADMIN) {
+            user.setRole(request.role());
+        }
+
         return repository.save(user);
     }
 
