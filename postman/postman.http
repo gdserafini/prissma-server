@@ -1,0 +1,101 @@
+### Variables
+@host = http://localhost:8080
+### usar para ADMIN:
+#@JWT_TOKEN =
+
+### usar para USER:
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJqb2FvM0BleGFtcGxlLmNvbSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzc1NDE2Mzc3LCJleHAiOjE3NzU1MDI3Nzd9.lQrhqYd7h3QHf4LhVzcwAlzOFW-DNPwvFSlSYv50yxQ
+
+### INSTRUÇÕES:
+### 1. Execute o teste 2 (Login com ADMIN)
+### 2. Copie o token JWT do response
+### 3. Cole o token aqui: @JWT_TOKEN = SEU_TOKEN_AQUI
+### 4. Depois execute os demais testes
+
+### 0. PRIMEIRO: Criar usuário ADMIN
+POST {{host}}/users
+Content-Type: application/json
+
+{
+  "name": "Admin User",
+  "email": "admin@example.com",
+  "password": "AdminSenha@123",
+  "role": "ADMIN"
+}
+
+### 1. Cadastro de novo usuário
+POST {{host}}/users
+Content-Type: application/json
+
+{
+  "name": "João Silva",
+  "email": "joao3@example.com",
+  "password": "Senha@123",
+  "role": "USER"
+}
+
+### 2. SEGUNDO: Login com ADMIN (Executar este para gerar o token JWT)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "AdminSenha@123"
+}
+
+### 2. SEGUNDO: Login com USER
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "joao3@example.com",
+  "password": "Senha@123"
+}
+
+### 3. Obter dados do usuário autenticado (GET /users/me)
+GET {{host}}/users/me
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 4. Listar todos os usuários (Requer role ADMIN)
+GET {{host}}/users
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 5. Obter usuário por ID
+GET {{host}}/users/3
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 6. Atualizar usuário (PATCH /users/{id})
+PATCH {{host}}/users/4
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "João Silva Atualizado",
+  "email": "joao.novo@example.com",
+  "password": "NovaSenha@123"
+}
+
+### 8. Criar segundo usuário para testes
+POST {{host}}/users
+Content-Type: application/json
+
+{
+  "name": "Maria Santos",
+  "email": "maria@example.com",
+  "password": "Senha@456",
+  "role": "USER"
+}
+
+### 9. Criar usuário com role ENG
+POST {{host}}/users
+Content-Type: application/json
+
+{
+  "name": "Carlos Engineer",
+  "email": "carlos@example.com",
+  "password": "Senha@789",
+  "role": "ENG"
+}
+
+
+
