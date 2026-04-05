@@ -5,9 +5,8 @@ import br.pucpr.prissma_server.users.UserValidator;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +24,7 @@ public class AuthService {
     private final PasswordResetTokenRepository resetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserValidator userValidator;
-    private final JavaMailSender mailSender;
+    private final ApplicationEventPublisher eventPublisher;
     private final Algorithm algorithm;
     private final long expiration;
     private final String frontendUrl;
@@ -35,7 +34,7 @@ public class AuthService {
             PasswordResetTokenRepository resetTokenRepository,
             PasswordEncoder passwordEncoder,
             UserValidator userValidator,
-            JavaMailSender mailSender,
+            ApplicationEventPublisher eventPublisher,
             @Value("${security.jwt.secret}") String secret,
             @Value("${security.jwt.expiration}") long expiration,
             @Value("${security.password-reset.frontend-url}") String frontendUrl
@@ -44,7 +43,7 @@ public class AuthService {
         this.resetTokenRepository = resetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.userValidator = userValidator;
-        this.mailSender = mailSender;
+        this.eventPublisher = eventPublisher;
         this.algorithm = Algorithm.HMAC256(secret);
         this.expiration = expiration;
         this.frontendUrl = frontendUrl;
@@ -76,23 +75,14 @@ public class AuthService {
 
         User user = userOpt.get();
 
-        resetTokenRepository.deleteByUserId(user.getId());
+        resetTokenRepository.deleteByUser_Id(user.getId());
 
         String token = UUID.randomUUID().toString();
         Instant expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES);
         resetTokenRepository.save(new PasswordResetToken(token, user, expiresAt));
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Prissma - Password Reset");
-        message.setText(
-                "You requested a password reset.\n\n" +
-                "Click the link below to reset your password:\n" +
-                frontendUrl + "/reset-password?token=" + token + "\n\n" +
-                "This link expires in 15 minutes.\n" +
-                "If you did not request this, ignore this email."
-        );
-        mailSender.send(message);
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
+        eventPublisher.publishEvent(new PasswordResetEmailEvent(user.getEmail(), resetLink));
     }
 
     @Transactional
