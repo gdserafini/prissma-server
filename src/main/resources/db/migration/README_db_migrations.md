@@ -83,7 +83,7 @@ erDiagram
 
     PROJECT_BUDGETS {
         bigint id PK
-        bigint construction_project_id FK UK
+        bigint construction_project_id FK,UK
         text description
         numeric planned_total
         timestamptz created_at
