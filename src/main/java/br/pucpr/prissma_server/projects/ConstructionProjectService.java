@@ -16,9 +16,22 @@ public class ConstructionProjectService {
         this.repository = repository;
     }
 
+    private void requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        }
+    }
+
     public ConstructionProject createProject(ConstructionProject project) {
-        if (project.getTitle() == null || project.getTitle().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title is required");
+        requireText(project.getTitle(), "Title is required");
+        requireText(project.getAddress(), "Address is required");
+        requireText(project.getProjectType(), "Project type is required");
+        requireText(project.getCategory(), "Category is required");
+        if (project.getLandArea() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Land area is required");
+        }
+        if (project.getBuiltArea() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Built area is required");
         }
         if (repository.existsByTitle(project.getTitle())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project with this title already exists");
