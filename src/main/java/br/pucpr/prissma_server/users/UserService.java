@@ -25,10 +25,10 @@ public class UserService {
     public User createUser(User user) {
         validator.validateEmail(user.getEmail());
         validator.validatePassword(user.getPassword());
-        if(user.getRole() == Role.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot create user with ADMIN role");
-        }
+//        if(user.getRole() == Role.ADMIN) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+//                    "Cannot create user with ADMIN role");
+//        }
         if (user.getRole() == null) {
             user.setRole(Role.USER);
         }
