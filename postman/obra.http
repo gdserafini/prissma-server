@@ -29,7 +29,7 @@ Content-Type: application/json
 #@JWT_TOKEN =
 
 ### usar para USER:
-@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJqb2FvM0BleGFtcGxlLmNvbSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzc1NDE2Mzc3LCJleHAiOjE3NzU1MDI3Nzd9.lQrhqYd7h3QHf4LhVzcwAlzOFW-DNPwvFSlSYv50yxQ
+@JWT_TOKEN = SEU_TOKEN_AQUI
 
 ### INSTRUÇÕES:
 ### 1. Execute "Login com ADMIN" acima
@@ -37,10 +37,10 @@ Content-Type: application/json
 ### 3. Cole o token em: @JWT_TOKEN = SEU_TOKEN_AQUI
 ### 4. Execute os demais requests
 
-### ─── OBRA – CRUD ────────────────────────────────────────────────────────────
+### ─── PROJECTS – CRUD ───────────────────────────────────────────────────────
 
-### Criar obra
-POST {{host}}/obra
+### Criar project
+POST {{host}}/projects
 Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -58,20 +58,20 @@ Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Listar todas as obras
-GET {{host}}/obra
+### Listar todos os projects
+GET {{host}}/projects
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Buscar obra por ID
-GET {{host}}/obra/1
+### Buscar project por ID
+GET {{host}}/projects/1
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Atualizar obra (PATCH /obra/{id})
-PATCH {{host}}/obra/1
+### Atualizar project (PATCH /projects/{id})
+PATCH {{host}}/projects/1
 Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -83,24 +83,24 @@ Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Excluir obra (DELETE /obra/{id})
-DELETE {{host}}/obra/1
+### Excluir project (DELETE /projects/{id})
+DELETE {{host}}/projects/1
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### ─── ACOMPANHAMENTO ─────────────────────────────────────────────────────────
 
-### Acompanhamento de obra por ID (mock com dados aleatórios por ID)
-GET {{host}}/obra/1/acompanhamento
+### Acompanhamento de project por ID (mock com dados aleatórios por ID)
+GET {{host}}/projects/1/acompanhamento
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Acompanhamento – obra 2
-GET {{host}}/obra/2/acompanhamento
+### Acompanhamento – project 2
+GET {{host}}/projects/2/acompanhamento
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
-### Acompanhamento – obra 3
-GET {{host}}/obra/3/acompanhamento
+### Acompanhamento – project 3
+GET {{host}}/projects/3/acompanhamento
 Authorization: Bearer {{JWT_TOKEN}}

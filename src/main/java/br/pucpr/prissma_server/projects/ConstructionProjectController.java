@@ -1,5 +1,6 @@
 package br.pucpr.prissma_server.projects;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,8 +10,10 @@ import java.util.List;
 import java.util.Random;
 
 @RestController
-@RequestMapping("/obra")
+@RequestMapping("/projects")
 public class ConstructionProjectController {
+
+    private final ConstructionProjectService service;
 
     private static final String[] TITULOS_OBRA = {
             "Residencial Vista Verde", "Edifício Comercial Centro", "Condomínio Parque das Flores",
@@ -75,6 +78,40 @@ public class ConstructionProjectController {
 
     private static final String[] STATUS_OBRA = {"PLANNING", "IN_PROGRESS", "IN_PROGRESS", "IN_PROGRESS", "COMPLETED"};
 
+    public ConstructionProjectController(ConstructionProjectService service) {
+        this.service = service;
+    }
+
+    @PostMapping
+    public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request) {
+        ConstructionProject project = service.createProject(request.toEntity());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ConstructionProjectResponse.from(project));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ConstructionProjectResponse>> getAll() {
+        List<ConstructionProjectResponse> list = service.getAll().stream().map(ConstructionProjectResponse::from).toList();
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ConstructionProjectResponse> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ConstructionProjectResponse.from(service.getById(id)));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<ConstructionProjectResponse> updateProject(@PathVariable Long id,
+                                                                     @RequestBody ConstructionProjectRequest request) {
+        ConstructionProject updated = service.updateProject(id, request);
+        return ResponseEntity.ok(ConstructionProjectResponse.from(updated));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
+        service.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/acompanhamento")
     public ResponseEntity<AcompanhamentoResponse> getAcompanhamento(@PathVariable Long id) {
         Random rng = new Random(id);
@@ -101,7 +138,7 @@ public class ConstructionProjectController {
             String statusEtapa = resolverStatusEtapa(ordem, numEtapas, statusObra, rng);
 
             int numTarefas = 2 + rng.nextInt(3); // 2 a 4 tarefas
-            String[] tarefasDisponiveis[] = TAREFAS_POR_ETAPA[ei];
+            String[][] tarefasDisponiveis = TAREFAS_POR_ETAPA[ei];
             int[] tarefaIndexes = escolherIndicesUnicos(rng, tarefasDisponiveis.length, Math.min(numTarefas, tarefasDisponiveis.length));
 
             List<AcompanhamentoTaskResponse> tarefas = new ArrayList<>();

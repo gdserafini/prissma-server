@@ -1,5 +1,6 @@
-package br.pucpr.prissma_server.projects;
+package br.pucpr.prissma_server.task;
 
+import br.pucpr.prissma_server.stage.Stage;
 import br.pucpr.prissma_server.users.User;
 import jakarta.persistence.*;
 
