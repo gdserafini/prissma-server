@@ -1,0 +1,106 @@
+### Variables
+@host = http://localhost:8080
+
+### ─── LOGIN ────────────────────────────────────────────────────────────────
+
+### Login com ADMIN (copiar o token e colar em @JWT_TOKEN abaixo)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "AdminSenha@123"
+}
+
+###
+
+### Login com USER
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "joao3@example.com",
+  "password": "Senha@123"
+}
+
+###
+
+### usar para ADMIN:
+#@JWT_TOKEN =
+
+### usar para USER:
+@JWT_TOKEN = SEU_TOKEN_AQUI
+
+### INSTRUÇÕES:
+### 1. Execute "Login com ADMIN" acima
+### 2. Copie o token JWT do response
+### 3. Cole o token em: @JWT_TOKEN = SEU_TOKEN_AQUI
+### 4. Execute os demais requests
+
+### ─── PROJECTS – CRUD ───────────────────────────────────────────────────────
+
+### Criar project
+POST {{host}}/projects
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Residencial Vista Verde",
+  "address": "Rua das Palmeiras, 100 – Curitiba, PR",
+  "projectType": "RESIDENTIAL",
+  "category": "BUILDING",
+  "landArea": 800.00,
+  "builtArea": 600.00,
+  "status": "PLANNING",
+  "plannedStartDate": "2024-03-01",
+  "plannedEndDate": "2025-06-30"
+}
+
+###
+
+### Listar todos os projects
+GET {{host}}/projects
+Authorization: Bearer {{JWT_TOKEN}}
+
+###
+
+### Buscar project por ID
+GET {{host}}/projects/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+###
+
+### Atualizar project (PATCH /projects/{id})
+PATCH {{host}}/projects/1
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Residencial Vista Verde – Fase 2",
+  "status": "IN_PROGRESS",
+  "plannedEndDate": "2025-09-30"
+}
+
+###
+
+### Excluir project (DELETE /projects/{id})
+DELETE {{host}}/projects/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+### ─── ACOMPANHAMENTO ─────────────────────────────────────────────────────────
+
+### Acompanhamento de project por ID (mock com dados aleatórios por ID)
+GET {{host}}/projects/1/acompanhamento
+Authorization: Bearer {{JWT_TOKEN}}
+
+###
+
+### Acompanhamento – project 2
+GET {{host}}/projects/2/acompanhamento
+Authorization: Bearer {{JWT_TOKEN}}
+
+###
+
+### Acompanhamento – project 3
+GET {{host}}/projects/3/acompanhamento
+Authorization: Bearer {{JWT_TOKEN}}
