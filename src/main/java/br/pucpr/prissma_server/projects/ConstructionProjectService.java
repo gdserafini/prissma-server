@@ -16,19 +16,17 @@ public class ConstructionProjectService {
         this.repository = repository;
     }
 
+    private void requireText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        }
+    }
+
     public ConstructionProject createProject(ConstructionProject project) {
-        if (project.getTitle() == null || project.getTitle().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title is required");
-        }
-        if (project.getAddress() == null || project.getAddress().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Address is required");
-        }
-        if (project.getProjectType() == null || project.getProjectType().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project type is required");
-        }
-        if (project.getCategory() == null || project.getCategory().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
-        }
+        requireText(project.getTitle(), "Title is required");
+        requireText(project.getAddress(), "Address is required");
+        requireText(project.getProjectType(), "Project type is required");
+        requireText(project.getCategory(), "Category is required");
         if (project.getLandArea() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Land area is required");
         }
