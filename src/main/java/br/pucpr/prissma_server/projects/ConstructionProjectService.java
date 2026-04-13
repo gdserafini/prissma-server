@@ -20,6 +20,21 @@ public class ConstructionProjectService {
         if (project.getTitle() == null || project.getTitle().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Title is required");
         }
+        if (project.getAddress() == null || project.getAddress().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Address is required");
+        }
+        if (project.getProjectType() == null || project.getProjectType().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project type is required");
+        }
+        if (project.getCategory() == null || project.getCategory().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+        if (project.getLandArea() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Land area is required");
+        }
+        if (project.getBuiltArea() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Built area is required");
+        }
         if (repository.existsByTitle(project.getTitle())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project with this title already exists");
         }
