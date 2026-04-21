@@ -1,10 +1,10 @@
 ### Variables
 @host = http://localhost:8080
 ### usar para ADMIN:
-#@JWT_TOKEN =
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3NjAxNjM3NSwiZXhwIjoxNzc2MTAyNzc1fQ.5GRTzmSpg5Ap4lRavkkw0WOb7holzwKg2UxlJ7WNWYg
 
 ### usar para USER:
-@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJqb2FvM0BleGFtcGxlLmNvbSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNzc1NDE2Mzc3LCJleHAiOjE3NzU1MDI3Nzd9.lQrhqYd7h3QHf4LhVzcwAlzOFW-DNPwvFSlSYv50yxQ
+#@JWT_TOKEN =
 
 ### INSTRUÇÕES:
 ### 1. Execute o teste 2 (Login com ADMIN)
@@ -98,4 +98,45 @@ Content-Type: application/json
 }
 
 
+### Projects CRUD tests (use same @JWT_TOKEN)
+# Create project
+POST {{host}}/projects
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
 
+{
+  "title": "Obra de Teste",
+  "address": "Rua das Flores, 100",
+  "projectType": "RESIDENTIAL",
+  "category": "HOUSE",
+  "landArea": 250.00,
+  "builtArea": 180.00,
+  "status": "PLANNING",
+  "plannedStartDate": "2026-06-01",
+  "plannedEndDate": "2026-12-01"
+}
+
+### List projects
+GET {{host}}/projects
+Authorization: Bearer {{JWT_TOKEN}}
+
+### Get project by id (replace 1 with created id)
+GET {{host}}/projects/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+### Update project (PATCH)
+PATCH {{host}}/projects/1
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "address": "Av. Atualizada, 200",
+  "status": "IN_PROGRESS"
+}
+
+### Delete project
+DELETE {{host}}/projects/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+### Unauthenticated request (should return 401)
+GET {{host}}/projects

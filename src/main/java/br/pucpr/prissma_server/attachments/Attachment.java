@@ -2,8 +2,8 @@ package br.pucpr.prissma_server.attachments;
 
 import br.pucpr.prissma_server.design.DesignSubmission;
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.Stage;
-import br.pucpr.prissma_server.projects.Task;
+import br.pucpr.prissma_server.stage.Stage;
+import br.pucpr.prissma_server.task.Task;
 import br.pucpr.prissma_server.users.User;
 import jakarta.persistence.*;
 

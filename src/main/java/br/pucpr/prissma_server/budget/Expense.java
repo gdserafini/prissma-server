@@ -1,6 +1,6 @@
 package br.pucpr.prissma_server.budget;
 
-import br.pucpr.prissma_server.projects.Stage;
+import br.pucpr.prissma_server.stage.Stage;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;

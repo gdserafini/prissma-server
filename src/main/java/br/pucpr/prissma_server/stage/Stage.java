@@ -1,5 +1,6 @@
-package br.pucpr.prissma_server.projects;
+package br.pucpr.prissma_server.stage;
 
+import br.pucpr.prissma_server.projects.ConstructionProject;
 import jakarta.persistence.*;
 
 import java.time.Instant;
