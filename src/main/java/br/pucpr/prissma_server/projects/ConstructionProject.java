@@ -17,8 +17,23 @@ public class ConstructionProject {
     @Column(nullable = false, unique = true, length = 255)
     private String title;
 
-    @Column(nullable = false, length = 255)
-    private String address;
+    @Column(length = 10)
+    private String cep;
+
+    @Column(length = 255)
+    private String street;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 2)
+    private String state;
+
+    @Column(length = 20)
+    private String number;
+
+    @Column(length = 255)
+    private String complement;
 
     @Column(name = "project_type", nullable = false, length = 100)
     private String projectType;
@@ -62,12 +77,52 @@ public class ConstructionProject {
         this.title = title;
     }
 
-    public String getAddress() {
-        return address;
+    public String getCep() {
+        return cep;
     }
 
-    public void setAddress(String address) {
-        this.address = address;
+    public void setCep(String cep) {
+        this.cep = cep;
+    }
+
+    public String getStreet() {
+        return street;
+    }
+
+    public void setStreet(String street) {
+        this.street = street;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getNumber() {
+        return number;
+    }
+
+    public void setNumber(String number) {
+        this.number = number;
+    }
+
+    public String getComplement() {
+        return complement;
+    }
+
+    public void setComplement(String complement) {
+        this.complement = complement;
     }
 
     public String getProjectType() {
