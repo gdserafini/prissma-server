@@ -11,9 +11,12 @@ import java.util.List;
 public class ConstructionProjectService {
 
     private final ConstructionProjectRepository repository;
+    private final ConstructionProjectMemberRepository memberRepository;
 
-    public ConstructionProjectService(ConstructionProjectRepository repository) {
+    public ConstructionProjectService(ConstructionProjectRepository repository,
+                                      ConstructionProjectMemberRepository memberRepository) {
         this.repository = repository;
+        this.memberRepository = memberRepository;
     }
 
     private void requireText(String value, String message) {
@@ -24,7 +27,7 @@ public class ConstructionProjectService {
 
     public ConstructionProject createProject(ConstructionProject project) {
         requireText(project.getTitle(), "Title is required");
-        requireText(project.getAddress(), "Address is required");
+        requireText(project.getStreet(), "Street is required");
         requireText(project.getProjectType(), "Project type is required");
         requireText(project.getCategory(), "Category is required");
         if (project.getLandArea() == null) {
@@ -46,6 +49,10 @@ public class ConstructionProjectService {
         return repository.findAll();
     }
 
+    public List<ConstructionProject> getAllForUser(Long userId) {
+        return memberRepository.findAllProjectsByUserId(userId);
+    }
+
     public ConstructionProject getById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
@@ -60,7 +67,12 @@ public class ConstructionProjectService {
             }
             project.setTitle(request.title());
         }
-        if (request.address() != null) project.setAddress(request.address());
+        if (request.cep() != null) project.setCep(request.cep());
+        if (request.street() != null) project.setStreet(request.street());
+        if (request.city() != null) project.setCity(request.city());
+        if (request.state() != null) project.setState(request.state());
+        if (request.number() != null) project.setNumber(request.number());
+        if (request.complement() != null) project.setComplement(request.complement());
         if (request.projectType() != null) project.setProjectType(request.projectType());
         if (request.category() != null) project.setCategory(request.category());
         if (request.landArea() != null) project.setLandArea(request.landArea());
