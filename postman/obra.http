@@ -46,7 +46,12 @@ Authorization: Bearer {{JWT_TOKEN}}
 
 {
   "title": "Residencial Vista Verde",
-  "address": "Rua das Palmeiras, 100 – Curitiba, PR",
+  "cep": "80000-000",
+  "street": "Rua das Palmeiras",
+  "number": "100",
+  "complement": "Apto 201",
+  "city": "Curitiba",
+  "state": "PR",
   "projectType": "RESIDENTIAL",
   "category": "BUILDING",
   "landArea": 800.00,

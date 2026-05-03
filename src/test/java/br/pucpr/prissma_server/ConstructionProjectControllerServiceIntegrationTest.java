@@ -2,19 +2,21 @@ package br.pucpr.prissma_server;
 
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectController;
+import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectService;
+import br.pucpr.prissma_server.users.Role;
+import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.users.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -24,9 +26,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -36,7 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = ConstructionProjectController.class)
 @Import(ConstructionProjectService.class)
-@AutoConfigureMockMvc(addFilters = false)
 public class ConstructionProjectControllerServiceIntegrationTest {
 
     @Autowired
@@ -45,21 +46,24 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private ConstructionProjectRepository repository; // mock provided by TestConfig
+    @MockitoBean
+    private ConstructionProjectRepository repository;
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public ConstructionProjectRepository constructionProjectRepository() {
-            return Mockito.mock(ConstructionProjectRepository.class);
-        }
-    }
+    @MockitoBean
+    private ConstructionProjectMemberRepository memberRepository;
+
+    @MockitoBean
+    private UserRepository userRepository;
 
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle("Obra de Teste");
-        p.setAddress("Rua das Flores, 100");
+        p.setCep("80000-000");
+        p.setStreet("Rua das Flores");
+        p.setCity("Curitiba");
+        p.setState("PR");
+        p.setNumber("100");
+        p.setComplement("Apto 12");
         p.setProjectType("RESIDENTIAL");
         p.setCategory("HOUSE");
         p.setLandArea(new BigDecimal("250.00"));
@@ -72,10 +76,25 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         return p;
     }
 
+    private User adminUser() {
+        User user = new User();
+        user.setId(1L);
+        user.setRole(Role.ADMIN);
+        return user;
+    }
+
+    private User regularUser() {
+        User user = new User();
+        user.setId(2L);
+        user.setRole(Role.USER);
+        return user;
+    }
+
     @Test
     @DisplayName("POST /projects -> 201 when created")
     void postCreateProject() throws Exception {
         when(repository.existsByTitle("Obra de Teste")).thenReturn(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser()));
         when(repository.save(any(ConstructionProject.class))).thenAnswer(invocation -> {
             ConstructionProject p = invocation.getArgument(0);
             try {
@@ -88,7 +107,12 @@ public class ConstructionProjectControllerServiceIntegrationTest {
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("title", "Obra de Teste");
-            put("address", "Rua das Flores, 100");
+            put("cep", "80000-000");
+            put("street", "Rua das Flores");
+            put("city", "Curitiba");
+            put("state", "PR");
+            put("number", "100");
+            put("complement", "Apto 12");
             put("projectType", "RESIDENTIAL");
             put("category", "HOUSE");
             put("landArea", 250.00);
@@ -99,11 +123,12 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         }});
 
         mockMvc.perform(post("/projects")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(1L, null)))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("Obra de Teste"))
-                .andExpect(jsonPath("$.address").value("Rua das Flores, 100"));
+                .andExpect(jsonPath("$.street").value("Rua das Flores"));
     }
 
     @Test
@@ -125,9 +150,11 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @DisplayName("GET /projects -> 200 and list")
     void getAllProjects() throws Exception {
         ConstructionProject p = sampleProject();
-        when(repository.findAll()).thenReturn(List.of(p));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(regularUser()));
+        when(memberRepository.findAllProjectsByUserId(2L)).thenReturn(List.of(p));
 
-        mockMvc.perform(get("/projects"))
+        mockMvc.perform(get("/projects")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(2L, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Obra de Teste"));
     }
@@ -151,7 +178,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("title", "New Title");
-            put("address", "Av. Atualizada, 200");
+            put("street", "Av. Atualizada");
             put("status", "IN_PROGRESS");
         }});
 
@@ -160,7 +187,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
                         .content(payload))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New Title"))
-                .andExpect(jsonPath("$.address").value("Av. Atualizada, 200"));
+                .andExpect(jsonPath("$.street").value("Av. Atualizada"));
     }
 
     @Test

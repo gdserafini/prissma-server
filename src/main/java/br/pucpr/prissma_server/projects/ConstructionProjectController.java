@@ -1,7 +1,11 @@
 package br.pucpr.prissma_server.projects;
 
+import br.pucpr.prissma_server.users.Role;
+import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -14,6 +18,7 @@ import java.util.Random;
 public class ConstructionProjectController {
 
     private final ConstructionProjectService service;
+    private final UserRepository userRepository;
 
     private static final String[] TITULOS_OBRA = {
             "Residencial Vista Verde", "Edifício Comercial Centro", "Condomínio Parque das Flores",
@@ -78,19 +83,35 @@ public class ConstructionProjectController {
 
     private static final String[] STATUS_OBRA = {"PLANNING", "IN_PROGRESS", "IN_PROGRESS", "IN_PROGRESS", "COMPLETED"};
 
-    public ConstructionProjectController(ConstructionProjectService service) {
+    public ConstructionProjectController(ConstructionProjectService service, UserRepository userRepository) {
         this.service = service;
+        this.userRepository = userRepository;
     }
 
     @PostMapping
-    public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request) {
-        ConstructionProject project = service.createProject(request.toEntity());
+    public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request,
+                                                                     Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        ConstructionProject project = service.createProject(request.toEntity(), userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ConstructionProjectResponse.from(project));
     }
 
     @GetMapping
-    public ResponseEntity<List<ConstructionProjectResponse>> getAll() {
-        List<ConstructionProjectResponse> list = service.getAll().stream().map(ConstructionProjectResponse::from).toList();
+    public ResponseEntity<List<ConstructionProjectResponse>> getAll(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        List<ConstructionProject> projects;
+        if (user.getRole() == Role.ADMIN) {
+            // Admin sees all projects
+            projects = service.getAll();
+        } else {
+            // Other users see only their linked projects
+            projects = service.getAllForUser(userId);
+        }
+
+        List<ConstructionProjectResponse> list = projects.stream().map(ConstructionProjectResponse::from).toList();
         return ResponseEntity.ok(list);
     }
 

@@ -106,7 +106,12 @@ Authorization: Bearer {{JWT_TOKEN}}
 
 {
   "title": "Obra de Teste",
-  "address": "Rua das Flores, 100",
+  "cep": "80000-000",
+  "street": "Rua das Flores",
+  "number": "100",
+  "complement": "",
+  "city": "Curitiba",
+  "state": "PR",
   "projectType": "RESIDENTIAL",
   "category": "HOUSE",
   "landArea": 250.00,
@@ -130,7 +135,9 @@ Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
 {
-  "address": "Av. Atualizada, 200",
+  "cep": "80100-000",
+  "street": "Av. Atualizada",
+  "number": "200",
   "status": "IN_PROGRESS"
 }
 

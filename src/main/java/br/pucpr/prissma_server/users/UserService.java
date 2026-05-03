@@ -24,6 +24,10 @@ public class UserService {
 
     public User createUser(User user) {
         validator.validateEmail(user.getEmail());
+        if (repository.findByEmail(user.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Email já cadastrado");
+        }
         validator.validatePassword(user.getPassword());
         if(user.getRole() == Role.ADMIN) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -53,6 +57,10 @@ public class UserService {
         }
         if (request.email() != null) {
             validator.validateEmail(request.email());
+            if (!request.email().equals(user.getEmail()) && repository.findByEmail(request.email()).isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Email já cadastrado");
+            }
             user.setEmail(request.email());
         }
         if (request.password() != null) {

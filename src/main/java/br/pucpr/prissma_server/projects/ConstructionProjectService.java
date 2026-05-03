@@ -1,5 +1,7 @@
 package br.pucpr.prissma_server.projects;
 
+import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -7,13 +9,21 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
 public class ConstructionProjectService {
 
     private final ConstructionProjectRepository repository;
+    private final ConstructionProjectMemberRepository memberRepository;
+    private final UserRepository userRepository;
 
-    public ConstructionProjectService(ConstructionProjectRepository repository) {
+    public ConstructionProjectService(ConstructionProjectRepository repository,
+                                      ConstructionProjectMemberRepository memberRepository,
+                                      UserRepository userRepository) {
         this.repository = repository;
+        this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
     }
 
     private void requireText(String value, String message) {
@@ -22,9 +32,10 @@ public class ConstructionProjectService {
         }
     }
 
-    public ConstructionProject createProject(ConstructionProject project) {
+    @Transactional
+    public ConstructionProject createProject(ConstructionProject project, Long ownerUserId) {
         requireText(project.getTitle(), "Title is required");
-        requireText(project.getAddress(), "Address is required");
+        requireText(project.getStreet(), "Street is required");
         requireText(project.getProjectType(), "Project type is required");
         requireText(project.getCategory(), "Category is required");
         if (project.getLandArea() == null) {
@@ -39,11 +50,28 @@ public class ConstructionProjectService {
         Instant now = Instant.now();
         project.setCreatedAt(now);
         project.setUpdatedAt(now);
-        return repository.save(project);
+        ConstructionProject saved = repository.save(project);
+
+        User owner = userRepository.findById(ownerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        ConstructionProjectMember member = new ConstructionProjectMember();
+        member.setConstructionProject(saved);
+        member.setUser(owner);
+        member.setRoleInProject("OWNER");
+        member.setMembershipStatus("ACTIVE");
+        member.setJoinedAt(now);
+        memberRepository.save(member);
+
+        return saved;
     }
 
     public List<ConstructionProject> getAll() {
         return repository.findAll();
+    }
+
+    public List<ConstructionProject> getAllForUser(Long userId) {
+        return memberRepository.findAllProjectsByUserId(userId);
     }
 
     public ConstructionProject getById(Long id) {
@@ -60,7 +88,12 @@ public class ConstructionProjectService {
             }
             project.setTitle(request.title());
         }
-        if (request.address() != null) project.setAddress(request.address());
+        if (request.cep() != null) project.setCep(request.cep());
+        if (request.street() != null) project.setStreet(request.street());
+        if (request.city() != null) project.setCity(request.city());
+        if (request.state() != null) project.setState(request.state());
+        if (request.number() != null) project.setNumber(request.number());
+        if (request.complement() != null) project.setComplement(request.complement());
         if (request.projectType() != null) project.setProjectType(request.projectType());
         if (request.category() != null) project.setCategory(request.category());
         if (request.landArea() != null) project.setLandArea(request.landArea());

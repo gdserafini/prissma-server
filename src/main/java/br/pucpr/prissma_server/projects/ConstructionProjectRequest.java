@@ -5,7 +5,12 @@ import java.time.LocalDate;
 
 public record ConstructionProjectRequest(
         String title,
-        String address,
+        String cep,
+        String street,
+        String city,
+        String state,
+        String number,
+        String complement,
         String projectType,
         String category,
         BigDecimal landArea,
@@ -17,7 +22,12 @@ public record ConstructionProjectRequest(
     public ConstructionProject toEntity() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle(this.title);
-        p.setAddress(this.address);
+        p.setCep(this.cep);
+        p.setStreet(this.street);
+        p.setCity(this.city);
+        p.setState(this.state);
+        p.setNumber(this.number);
+        p.setComplement(this.complement);
         p.setProjectType(this.projectType);
         p.setCategory(this.category);
         p.setLandArea(this.landArea);
