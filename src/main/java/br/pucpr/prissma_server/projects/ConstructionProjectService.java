@@ -1,5 +1,7 @@
 package br.pucpr.prissma_server.projects;
 
+import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -7,16 +9,21 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
 public class ConstructionProjectService {
 
     private final ConstructionProjectRepository repository;
     private final ConstructionProjectMemberRepository memberRepository;
+    private final UserRepository userRepository;
 
     public ConstructionProjectService(ConstructionProjectRepository repository,
-                                      ConstructionProjectMemberRepository memberRepository) {
+                                      ConstructionProjectMemberRepository memberRepository,
+                                      UserRepository userRepository) {
         this.repository = repository;
         this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
     }
 
     private void requireText(String value, String message) {
@@ -25,7 +32,8 @@ public class ConstructionProjectService {
         }
     }
 
-    public ConstructionProject createProject(ConstructionProject project) {
+    @Transactional
+    public ConstructionProject createProject(ConstructionProject project, Long ownerUserId) {
         requireText(project.getTitle(), "Title is required");
         requireText(project.getStreet(), "Street is required");
         requireText(project.getProjectType(), "Project type is required");
@@ -42,7 +50,20 @@ public class ConstructionProjectService {
         Instant now = Instant.now();
         project.setCreatedAt(now);
         project.setUpdatedAt(now);
-        return repository.save(project);
+        ConstructionProject saved = repository.save(project);
+
+        User owner = userRepository.findById(ownerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        ConstructionProjectMember member = new ConstructionProjectMember();
+        member.setConstructionProject(saved);
+        member.setUser(owner);
+        member.setRoleInProject("OWNER");
+        member.setMembershipStatus("ACTIVE");
+        member.setJoinedAt(now);
+        memberRepository.save(member);
+
+        return saved;
     }
 
     public List<ConstructionProject> getAll() {

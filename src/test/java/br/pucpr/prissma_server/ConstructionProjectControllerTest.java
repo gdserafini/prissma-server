@@ -3,22 +3,24 @@ package br.pucpr.prissma_server;
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectController;
 import br.pucpr.prissma_server.projects.ConstructionProjectService;
+import br.pucpr.prissma_server.users.Role;
+import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.users.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -30,7 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ConstructionProjectController.class)
-@AutoConfigureMockMvc(addFilters = false) // disable security filters for controller unit tests
 public class ConstructionProjectControllerTest {
 
     @Autowired
@@ -39,31 +40,38 @@ public class ConstructionProjectControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
-    private ConstructionProjectService service; // injected mock from TestConfiguration
+    @MockitoBean
+    private ConstructionProjectService service;
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public ConstructionProjectService constructionProjectService() {
-            return Mockito.mock(ConstructionProjectService.class);
-        }
-    }
+    @MockitoBean
+    private UserRepository userRepository;
 
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle("Obra de Teste");
-        p.setAddress("Rua das Flores, 100");
+        p.setCep("80000-000");
+        p.setStreet("Rua das Flores");
+        p.setCity("Curitiba");
+        p.setState("PR");
+        p.setNumber("100");
+        p.setComplement("Apto 12");
         p.setProjectType("RESIDENTIAL");
         p.setCategory("HOUSE");
         p.setLandArea(new BigDecimal("250.00"));
         p.setBuiltArea(new BigDecimal("180.00"));
         p.setStatus("PLANNING");
-        p.setPlannedStartDate(LocalDate.of(2026,6,1));
-        p.setPlannedEndDate(LocalDate.of(2026,12,1));
+        p.setPlannedStartDate(LocalDate.of(2026, 6, 1));
+        p.setPlannedEndDate(LocalDate.of(2026, 12, 1));
         p.setCreatedAt(Instant.now());
         p.setUpdatedAt(Instant.now());
         return p;
+    }
+
+    private User adminUser() {
+        User user = new User();
+        user.setId(1L);
+        user.setRole(Role.ADMIN);
+        return user;
     }
 
     @Test
@@ -77,11 +85,16 @@ public class ConstructionProjectControllerTest {
         } catch (NoSuchFieldException | IllegalAccessException ignored) {
         }
 
-        when(service.createProject(any(ConstructionProject.class))).thenReturn(returned);
+        when(service.createProject(any(ConstructionProject.class), any(Long.class))).thenReturn(returned);
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("title", "Obra de Teste");
-            put("address", "Rua das Flores, 100");
+            put("cep", "80000-000");
+            put("street", "Rua das Flores");
+            put("city", "Curitiba");
+            put("state", "PR");
+            put("number", "100");
+            put("complement", "Apto 12");
             put("projectType", "RESIDENTIAL");
             put("category", "HOUSE");
             put("landArea", 250.00);
@@ -92,11 +105,12 @@ public class ConstructionProjectControllerTest {
         }});
 
         mockMvc.perform(post("/projects")
+                        .principal(new UsernamePasswordAuthenticationToken(1L, null))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("Obra de Teste"))
-                .andExpect(jsonPath("$.address").value("Rua das Flores, 100"))
+                .andExpect(jsonPath("$.street").value("Rua das Flores"))
                 .andExpect(jsonPath("$.projectType").value("RESIDENTIAL"));
     }
 
@@ -110,9 +124,11 @@ public class ConstructionProjectControllerTest {
             idField.set(p, 2L);
         } catch (NoSuchFieldException | IllegalAccessException ignored) {
         }
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser()));
         when(service.getAll()).thenReturn(List.of(p));
 
-        mockMvc.perform(get("/projects"))
+        mockMvc.perform(get("/projects")
+                        .principal(new UsernamePasswordAuthenticationToken(1L, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Obra de Teste"));
     }
@@ -137,14 +153,6 @@ public class ConstructionProjectControllerTest {
     @Test
     @DisplayName("PATCH /projects/{id} updates and returns project")
     public void updateProject_returnsUpdated() throws Exception {
-        ConstructionProject existing = sampleProject();
-        try {
-            java.lang.reflect.Field idField = ConstructionProject.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(existing, 10L);
-        } catch (NoSuchFieldException | IllegalAccessException ignored) {
-        }
-
         ConstructionProject updated = sampleProject();
         try {
             java.lang.reflect.Field idField = ConstructionProject.class.getDeclaredField("id");
@@ -152,13 +160,13 @@ public class ConstructionProjectControllerTest {
             idField.set(updated, 10L);
         } catch (NoSuchFieldException | IllegalAccessException ignored) {
         }
-        updated.setAddress("Av. Atualizada, 200");
+        updated.setStreet("Av. Atualizada");
         updated.setStatus("IN_PROGRESS");
 
         when(service.updateProject(any(Long.class), any())).thenReturn(updated);
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
-            put("address", "Av. Atualizada, 200");
+            put("street", "Av. Atualizada");
             put("status", "IN_PROGRESS");
         }});
 
@@ -166,14 +174,13 @@ public class ConstructionProjectControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.address").value("Av. Atualizada, 200"))
+                .andExpect(jsonPath("$.street").value("Av. Atualizada"))
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
     @Test
     @DisplayName("DELETE /projects/{id} returns no content")
     public void deleteProject_returnsNoContent() throws Exception {
-        // service.deleteProject doesn't return value; just ensure endpoint returns 204
         mockMvc.perform(delete("/projects/20"))
                 .andExpect(status().isNoContent());
     }

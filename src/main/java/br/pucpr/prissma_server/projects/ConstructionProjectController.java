@@ -89,8 +89,10 @@ public class ConstructionProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request) {
-        ConstructionProject project = service.createProject(request.toEntity());
+    public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request,
+                                                                     Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        ConstructionProject project = service.createProject(request.toEntity(), userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ConstructionProjectResponse.from(project));
     }
 
