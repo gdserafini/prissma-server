@@ -5,6 +5,12 @@ security:
   password-reset:
     frontend-url: http://localhost:3000
 
+app:
+  admin:
+    email: admin@prissma.com
+    password: Admin@123
+    name: Admin
+
 spring:
   application:
     name: prissma-server
