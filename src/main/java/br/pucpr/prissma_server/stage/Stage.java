@@ -57,6 +57,10 @@ public class Stage {
         return id;
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
     public ConstructionProject getConstructionProject() {
         return constructionProject;
     }
@@ -144,5 +148,5 @@ public class Stage {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
-}
 
+}

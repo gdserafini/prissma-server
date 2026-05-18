@@ -1,0 +1,3 @@
+ALTER TABLE stages
+ADD COLUMN pavimento VARCHAR(50);
+

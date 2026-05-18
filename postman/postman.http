@@ -1,7 +1,7 @@
 ### Variables
 @host = http://localhost:8080
 ### usar para ADMIN:
-@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3NjAxNjM3NSwiZXhwIjoxNzc2MTAyNzc1fQ.5GRTzmSpg5Ap4lRavkkw0WOb7holzwKg2UxlJ7WNWYg
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3OTA3MjEwNiwiZXhwIjoxNzc5MTU4NTA2fQ.tHSE9MyB4F0DnrimU47PSFHva2QBCTJdJZbNp55gt50
 
 ### usar para USER:
 #@JWT_TOKEN =
@@ -105,7 +105,7 @@ Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
 {
-  "title": "Obra de Teste",
+  "title": "Obra de Teste admin",
   "cep": "80000-000",
   "street": "Rua das Flores",
   "number": "100",
@@ -125,12 +125,12 @@ Authorization: Bearer {{JWT_TOKEN}}
 GET {{host}}/projects
 Authorization: Bearer {{JWT_TOKEN}}
 
-### Get project by id (replace 1 with created id)
-GET {{host}}/projects/1
+### Get project by id (replace 5 with created id)
+GET {{host}}/projects/5
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Update project (PATCH)
-PATCH {{host}}/projects/1
+PATCH {{host}}/projects/5
 Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -142,8 +142,114 @@ Authorization: Bearer {{JWT_TOKEN}}
 }
 
 ### Delete project
-DELETE {{host}}/projects/1
+DELETE {{host}}/projects/5
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Unauthenticated request (should return 401)
 GET {{host}}/projects
+
+### ============================================================
+### STAGES CRUD TESTS
+### ============================================================
+
+### 1. Criar uma etapa em um projeto
+POST {{host}}/projects/5/stages
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "Fundação",
+  "description": "Execução das fundações diretas e indiretas da obra",
+  "displayOrder": 1,
+  "status": "PLANNED",
+  "plannedStartDate": "2026-06-01",
+  "plannedEndDate": "2026-07-15"
+}
+
+### 2. Listar todas as etapas de um projeto
+GET {{host}}/projects/5/stages
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 3. Obter uma etapa específica
+GET {{host}}/stages/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 4. Atualizar uma etapa (PATCH - atualização parcial)
+PATCH {{host}}/stages/1
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "status": "IN_PROGRESS",
+  "actualStartDate": "2026-06-05"
+}
+
+### 5. Deletar uma etapa
+DELETE {{host}}/stages/1
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 6. Criar segunda etapa para reorder
+POST {{host}}/projects/5/stages
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "Estrutura",
+  "description": "Execução da estrutura de concreto armado",
+  "displayOrder": 2,
+  "status": "PLANNED",
+  "plannedStartDate": "2026-07-16",
+  "plannedEndDate": "2026-09-15"
+}
+
+### 7. Criar terceira etapa para reorder
+POST {{host}}/projects/1/stages
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "Alvenaria",
+  "description": "Levantamento das paredes e divisórias internas",
+  "displayOrder": 3,
+  "status": "PLANNED",
+  "plannedStartDate": "2026-09-16",
+  "plannedEndDate": "2026-10-31"
+}
+
+### 8. Reordenar etapas (trocar ordem)
+### Exemplo: enviar [3, 2, 1] para inverter a ordem
+POST {{host}}/projects/1/stages/reorder
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+[2, 3, 1]
+
+### 9. Listar etapas após reorder para verificar mudança
+GET {{host}}/projects/1/stages
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 10. Teste de erro: criar etapa com displayOrder duplicado
+POST {{host}}/projects/1/stages
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "Cobertura",
+  "description": "Instalação de telhado",
+  "displayOrder": 1,
+  "status": "PLANNED"
+}
+
+### 11. Teste de erro: criar etapa com datas inválidas
+POST {{host}}/projects/1/stages
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "name": "Instalações",
+  "description": "Instalações elétricas e hidráulicas",
+  "displayOrder": 4,
+  "status": "PLANNED",
+  "plannedStartDate": "2026-11-15",
+  "plannedEndDate": "2026-11-01"
+}
