@@ -10,6 +10,15 @@ app:
     email: admin@prissma.com
     password: Admin@123
     name: Admin
+  storage:
+    backend: local
+    local:
+      root: ./var/storage
+    limits:
+      max-file-size-bytes: 10485760
+      allowed-content-types:
+        - application/pdf
+        - image/png
 
 spring:
   application:
@@ -25,6 +34,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
   mail:
     host: smtp.gmail.com
     port: 587
