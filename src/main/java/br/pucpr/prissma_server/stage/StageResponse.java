@@ -15,7 +15,6 @@ public class StageResponse {
     private LocalDate plannedEndDate;
     private LocalDate actualStartDate;
     private LocalDate actualEndDate;
-    private String pavimento;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -24,7 +23,7 @@ public class StageResponse {
     public StageResponse(Long id, Long constructionProjectId, String name, String description,
                         Integer displayOrder, String status, LocalDate plannedStartDate,
                         LocalDate plannedEndDate, LocalDate actualStartDate, LocalDate actualEndDate,
-                        String pavimento, Instant createdAt, Instant updatedAt) {
+                        Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.constructionProjectId = constructionProjectId;
         this.name = name;
@@ -35,7 +34,6 @@ public class StageResponse {
         this.plannedEndDate = plannedEndDate;
         this.actualStartDate = actualStartDate;
         this.actualEndDate = actualEndDate;
-        this.pavimento = pavimento;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -69,10 +67,6 @@ public class StageResponse {
 
     public LocalDate getActualEndDate() { return actualEndDate; }
     public void setActualEndDate(LocalDate actualEndDate) { this.actualEndDate = actualEndDate; }
-
-    public String getPavimento() { return pavimento; }
-    public void setPavimento(String pavimento) { this.pavimento = pavimento; }
-
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 

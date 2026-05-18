@@ -49,7 +49,7 @@ public class StageService {
     }
 
     private void validateAuthorization(Long userId, Long projectId) {
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         var memberOpt = memberRepository.findAll().stream()
@@ -71,10 +71,11 @@ public class StageService {
     @Transactional
     public StageResponse create(Long projectId, StageRequest request, Long userId) {
         validateDates(request);
-        validateAuthorization(userId, projectId);
 
         ConstructionProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        validateAuthorization(userId, projectId);
 
         if (stageRepository.findByConstructionProjectIdAndDisplayOrder(projectId, request.getDisplayOrder()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -157,9 +158,10 @@ public class StageService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
         for (int i = 0; i < stageIds.size(); i++) {
-            Stage stage = stageRepository.findById(stageIds.get(i))
+            Long stageId = stageIds.get(i);
+            Stage stage = stageRepository.findById(stageId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Stage not found: " + stageIds.get(i)));
+                            "Stage not found: " + stageId));
 
             if (!stage.getConstructionProject().getId().equals(projectId)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -172,4 +174,8 @@ public class StageService {
         }
     }
 }
+
+
+
+
 

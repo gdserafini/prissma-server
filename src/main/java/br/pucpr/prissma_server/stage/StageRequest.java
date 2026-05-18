@@ -23,13 +23,12 @@ public class StageRequest {
     private LocalDate plannedEndDate;
     private LocalDate actualStartDate;
     private LocalDate actualEndDate;
-    private String pavimento;
 
     public StageRequest() {}
 
     public StageRequest(String name, String description, Integer displayOrder, String status,
                        LocalDate plannedStartDate, LocalDate plannedEndDate,
-                       LocalDate actualStartDate, LocalDate actualEndDate, String pavimento) {
+                       LocalDate actualStartDate, LocalDate actualEndDate) {
         this.name = name;
         this.description = description;
         this.displayOrder = displayOrder;
@@ -38,7 +37,6 @@ public class StageRequest {
         this.plannedEndDate = plannedEndDate;
         this.actualStartDate = actualStartDate;
         this.actualEndDate = actualEndDate;
-        this.pavimento = pavimento;
     }
 
     public String getName() { return name; }
@@ -64,8 +62,5 @@ public class StageRequest {
 
     public LocalDate getActualEndDate() { return actualEndDate; }
     public void setActualEndDate(LocalDate actualEndDate) { this.actualEndDate = actualEndDate; }
-
-    public String getPavimento() { return pavimento; }
-    public void setPavimento(String pavimento) { this.pavimento = pavimento; }
 }
 

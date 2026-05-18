@@ -58,6 +58,7 @@ erDiagram
         text description
         int display_order
         varchar status
+        varchar pavimento
         date planned_start_date
         date planned_end_date
         date actual_start_date
@@ -183,6 +184,9 @@ O projeto usa **Flyway** para versionar e aplicar mudanças no banco.
 - `V3__create_budget_tables.sql`
 - `V4__create_design_tables.sql`
 - `V5__create_attachments_table.sql`
+- `V6__add_arch_role.sql`
+- `V7__create_user_addresses_and_split_project_address.sql`
+- `V8__add_pavimento_field_to_stages.sql`
 
 ### Regras para novas migrações
 - **Não edite** migrações já executadas em ambientes compartilhados.

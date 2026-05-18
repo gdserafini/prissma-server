@@ -1,7 +1,6 @@
 package br.pucpr.prissma_server.stage;
 
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,12 +18,23 @@ public class StageController {
         this.service = service;
     }
 
+    private Long resolveUserId(Authentication auth) {
+        Object principal = auth.getPrincipal();
+        if (principal instanceof Long userId) {
+            return userId;
+        }
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(auth.getName());
+    }
+
     @PostMapping("/projects/{projectId}/stages")
     public ResponseEntity<StageResponse> create(
             @PathVariable Long projectId,
             @Valid @RequestBody StageRequest request,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         StageResponse response = service.create(projectId, request, userId);
         return ResponseEntity.created(URI.create("/stages/" + response.getId())).body(response);
     }
@@ -46,7 +56,7 @@ public class StageController {
             @PathVariable Long id,
             @Valid @RequestBody StageRequest request,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         StageResponse response = service.update(id, request, userId);
         return ResponseEntity.ok(response);
     }
@@ -55,7 +65,7 @@ public class StageController {
     public ResponseEntity<Void> delete(
             @PathVariable Long id,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         service.delete(id, userId);
         return ResponseEntity.noContent().build();
     }
@@ -65,9 +75,10 @@ public class StageController {
             @PathVariable Long projectId,
             @RequestBody List<Long> stageIds,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         service.reorder(projectId, stageIds, userId);
         return ResponseEntity.noContent().build();
     }
 }
+
 

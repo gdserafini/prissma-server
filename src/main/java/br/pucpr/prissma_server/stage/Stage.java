@@ -50,14 +50,15 @@ public class Stage {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    @Column(length = 50)
-    private String pavimento;
-
     public Stage() {
     }
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public ConstructionProject getConstructionProject() {
@@ -148,11 +149,4 @@ public class Stage {
         this.updatedAt = updatedAt;
     }
 
-    public String getPavimento() {
-        return pavimento;
-    }
-
-    public void setPavimento(String pavimento) {
-        this.pavimento = pavimento;
-    }
 }

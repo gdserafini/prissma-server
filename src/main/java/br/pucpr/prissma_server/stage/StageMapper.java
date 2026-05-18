@@ -57,10 +57,10 @@ public class StageMapper {
             stage.getPlannedEndDate(),
             stage.getActualStartDate(),
             stage.getActualEndDate(),
-            null,
             stage.getCreatedAt(),
             stage.getUpdatedAt()
         );
     }
 }
+
 
