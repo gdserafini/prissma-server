@@ -50,6 +50,9 @@ public class Stage {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(length = 50)
+    private String pavimento;
+
     public Stage() {
     }
 
@@ -144,5 +147,12 @@ public class Stage {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
-}
 
+    public String getPavimento() {
+        return pavimento;
+    }
+
+    public void setPavimento(String pavimento) {
+        this.pavimento = pavimento;
+    }
+}
