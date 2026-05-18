@@ -32,6 +32,44 @@ public class ConstructionProjectService {
         }
     }
 
+    private void requireProjectManager(Long projectId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "User is not a member of this project"));
+
+        if (!"ACTIVE".equals(member.getMembershipStatus())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "User is not an active member of this project");
+        }
+
+        String roleInProject = member.getRoleInProject();
+        if (!"OWNER".equals(roleInProject) && !"ENGINEER".equals(roleInProject)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only OWNER or ENGINEER can manage project members");
+        }
+    }
+
+    private void requireProjectAccess(Long projectId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (user.getRole() == br.pucpr.prissma_server.users.Role.ADMIN) {
+            return;
+        }
+
+        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "User is not a member of this project"));
+
+        if (!"ACTIVE".equals(member.getMembershipStatus())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "User is not an active member of this project");
+        }
+    }
+
     @Transactional
     public ConstructionProject createProject(ConstructionProject project, Long ownerUserId) {
         requireText(project.getTitle(), "Title is required");
@@ -64,6 +102,58 @@ public class ConstructionProjectService {
         memberRepository.save(member);
 
         return saved;
+    }
+
+    @Transactional
+    public ConstructionProjectMember addMember(Long projectId, Long actorUserId, AddProjectMemberRequest request) {
+        if (request == null || request.userId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User id is required");
+        }
+
+        ConstructionProject project = repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        requireProjectManager(projectId, actorUserId);
+
+        User targetUser = userRepository.findById(request.userId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (request.roleInProject() == null || request.roleInProject().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role in project is required");
+        }
+
+        String roleInProject = request.roleInProject().trim().toUpperCase();
+        if (!List.of("ENGINEER", "ARCHITECT", "FOREMAN").contains(roleInProject)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Role in project must be ENGINEER, ARCHITECT, or FOREMAN");
+        }
+
+        if (memberRepository.findByConstructionProjectIdAndUserId(projectId, targetUser.getId()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "User is already a member of this project");
+        }
+
+        Instant now = Instant.now();
+        ConstructionProjectMember member = new ConstructionProjectMember();
+        member.setConstructionProject(project);
+        member.setUser(targetUser);
+        member.setRoleInProject(roleInProject);
+        member.setMembershipStatus("ACTIVE");
+        member.setJoinedAt(now);
+
+        return memberRepository.save(member);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ConstructionProjectMemberResponse> getMembers(Long projectId, Long userId) {
+        repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        requireProjectAccess(projectId, userId);
+
+        return memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(projectId).stream()
+                .map(ConstructionProjectMemberResponse::from)
+                .toList();
     }
 
     public List<ConstructionProject> getAll() {

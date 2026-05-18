@@ -88,17 +88,28 @@ public class ConstructionProjectController {
         this.userRepository = userRepository;
     }
 
+    private Long resolveUserId(Authentication auth) {
+        Object principal = auth.getPrincipal();
+        if (principal instanceof Long userId) {
+            return userId;
+        }
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(auth.getName());
+    }
+
     @PostMapping
     public ResponseEntity<ConstructionProjectResponse> createProject(@RequestBody ConstructionProjectRequest request,
                                                                      Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         ConstructionProject project = service.createProject(request.toEntity(), userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ConstructionProjectResponse.from(project));
     }
 
     @GetMapping
     public ResponseEntity<List<ConstructionProjectResponse>> getAll(Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -131,6 +142,23 @@ public class ConstructionProjectController {
     public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
         service.deleteProject(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{projectId}/members")
+    public ResponseEntity<ConstructionProjectMemberResponse> addMember(@PathVariable Long projectId,
+                                                                       @RequestBody AddProjectMemberRequest request,
+                                                                       Authentication auth) {
+        Long userId = resolveUserId(auth);
+        ConstructionProjectMember member = service.addMember(projectId, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ConstructionProjectMemberResponse.from(member));
+    }
+
+    @GetMapping("/{projectId}/members")
+    public ResponseEntity<List<ConstructionProjectMemberResponse>> getMembers(@PathVariable Long projectId,
+                                                                              Authentication auth) {
+        Long userId = resolveUserId(auth);
+        List<ConstructionProjectMemberResponse> members = service.getMembers(projectId, userId);
+        return ResponseEntity.ok(members);
     }
 
     @GetMapping("/{id}/acompanhamento")

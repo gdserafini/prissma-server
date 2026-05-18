@@ -11,6 +11,10 @@ public interface ConstructionProjectMemberRepository extends JpaRepository<Const
     @Query("SELECT m.constructionProject FROM ConstructionProjectMember m WHERE m.user.id = :userId")
     List<ConstructionProject> findAllProjectsByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT m FROM ConstructionProjectMember m JOIN FETCH m.user JOIN FETCH m.constructionProject " +
+            "WHERE m.constructionProject.id = :projectId ORDER BY m.joinedAt ASC, m.id ASC")
+    List<ConstructionProjectMember> findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(@Param("projectId") Long projectId);
+
     Optional<ConstructionProjectMember> findByConstructionProjectIdAndUserId(Long constructionProjectId, Long userId);
 }
 

@@ -91,8 +91,8 @@ POST {{host}}/users
 Content-Type: application/json
 
 {
-  "name": "Carlos Engineer",
-  "email": "carlos@example.com",
+  "name": "abanan Engineer",
+  "email": "asdsadas@example.com",
   "password": "Senha@789",
   "role": "ENG"
 }
@@ -143,6 +143,20 @@ Authorization: Bearer {{JWT_TOKEN}}
 
 ### Delete project
 DELETE {{host}}/projects/5
+Authorization: Bearer {{JWT_TOKEN}}
+
+### Add member to project
+POST {{host}}/projects/5/members
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "userId": 37,
+  "roleInProject": "FOREMAN"
+}
+
+### List project members
+GET {{host}}/projects/5/members
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Unauthenticated request (should return 401)

@@ -92,6 +92,20 @@ Authorization: Bearer {{JWT_TOKEN}}
 DELETE {{host}}/projects/1
 Authorization: Bearer {{JWT_TOKEN}}
 
+### Adicionar pessoa na obra
+POST {{host}}/projects/1/members
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "userId": 4,
+  "roleInProject": "FOREMAN"
+}
+
+### Listar pessoas na obra
+GET {{host}}/projects/1/members
+Authorization: Bearer {{JWT_TOKEN}}
+
 ### ─── ACOMPANHAMENTO ─────────────────────────────────────────────────────────
 
 ### Acompanhamento de project por ID (mock com dados aleatórios por ID)

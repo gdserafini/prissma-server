@@ -2,6 +2,7 @@ package br.pucpr.prissma_server;
 
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectController;
+import br.pucpr.prissma_server.projects.ConstructionProjectMember;
 import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectService;
@@ -12,11 +13,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -28,7 +31,6 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -37,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = ConstructionProjectController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @Import(ConstructionProjectService.class)
 public class ConstructionProjectControllerServiceIntegrationTest {
 
@@ -90,6 +93,10 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         return user;
     }
 
+    private UsernamePasswordAuthenticationToken auth(Long userId) {
+        return new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    }
+
     @Test
     @DisplayName("POST /projects -> 201 when created")
     void postCreateProject() throws Exception {
@@ -123,7 +130,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         }});
 
         mockMvc.perform(post("/projects")
-                        .with(authentication(new UsernamePasswordAuthenticationToken(1L, null)))
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -141,6 +148,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         }});
 
         mockMvc.perform(post("/projects")
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest());
@@ -154,7 +162,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         when(memberRepository.findAllProjectsByUserId(2L)).thenReturn(List.of(p));
 
         mockMvc.perform(get("/projects")
-                        .with(authentication(new UsernamePasswordAuthenticationToken(2L, null))))
+                        .principal(auth(2L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Obra de Teste"));
     }
@@ -164,7 +172,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     void getById_notFound() throws Exception {
         when(repository.findById(10L)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/projects/10"))
+        mockMvc.perform(get("/projects/10")
+                        .principal(auth(1L)))
                 .andExpect(status().isNotFound());
     }
 
@@ -183,6 +192,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         }});
 
         mockMvc.perform(patch("/projects/20")
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
@@ -202,9 +212,131 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         }});
 
         mockMvc.perform(patch("/projects/21")
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /projects/{id}/members -> 201 when member is added")
+    void postAddProjectMember() throws Exception {
+        ConstructionProject project = sampleProject();
+        project.setId(40L);
+        User target = new User();
+        target.setId(4L);
+        target.setName("Carlos Engineer");
+        target.setEmail("carlos@example.com");
+        target.setRole(Role.USER);
+
+        User actor = adminUser();
+        actor.setRole(Role.USER);
+
+        ConstructionProjectMember actorMember = new ConstructionProjectMember();
+        actorMember.setConstructionProject(project);
+        actorMember.setUser(actor);
+        actorMember.setRoleInProject("OWNER");
+        actorMember.setMembershipStatus("ACTIVE");
+        actorMember.setJoinedAt(Instant.now());
+
+        when(repository.findById(40L)).thenReturn(Optional.of(project));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actor));
+        when(memberRepository.findByConstructionProjectIdAndUserId(40L, 1L)).thenReturn(Optional.of(actorMember));
+        when(userRepository.findById(4L)).thenReturn(Optional.of(target));
+        when(memberRepository.findByConstructionProjectIdAndUserId(40L, 4L)).thenReturn(Optional.empty());
+        when(memberRepository.save(org.mockito.ArgumentMatchers.any(ConstructionProjectMember.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
+            put("userId", 4L);
+            put("roleInProject", "ENGINEER");
+        }});
+
+        mockMvc.perform(post("/projects/40/members")
+                        .principal(auth(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectId").value(40L))
+                .andExpect(jsonPath("$.user.id").value(4L))
+                .andExpect(jsonPath("$.roleInProject").value("ENGINEER"));
+    }
+
+    @Test
+    @DisplayName("POST /projects/{id}/members -> 409 when member already exists")
+    void postAddProjectMember_duplicate() throws Exception {
+        ConstructionProject project = sampleProject();
+        project.setId(41L);
+        User actor = adminUser();
+        actor.setRole(Role.USER);
+        ConstructionProjectMember actorMember = new ConstructionProjectMember();
+        actorMember.setConstructionProject(project);
+        actorMember.setUser(actor);
+        actorMember.setRoleInProject("OWNER");
+        actorMember.setMembershipStatus("ACTIVE");
+        actorMember.setJoinedAt(Instant.now());
+
+        User target = regularUser();
+
+        when(repository.findById(41L)).thenReturn(Optional.of(project));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(actor));
+        when(memberRepository.findByConstructionProjectIdAndUserId(41L, 1L)).thenReturn(Optional.of(actorMember));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(target));
+        when(memberRepository.findByConstructionProjectIdAndUserId(41L, 2L)).thenReturn(Optional.of(new ConstructionProjectMember()));
+
+        String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
+            put("userId", 2L);
+            put("roleInProject", "FOREMAN");
+        }});
+
+        mockMvc.perform(post("/projects/41/members")
+                        .principal(auth(1L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("GET /projects/{id}/members -> 200 when caller can access the project")
+    void getProjectMembers() throws Exception {
+        ConstructionProject project = sampleProject();
+        project.setId(50L);
+
+        User owner = adminUser();
+        owner.setRole(Role.USER);
+
+        User engineer = new User();
+        engineer.setId(4L);
+        engineer.setName("Carlos Engineer");
+        engineer.setEmail("carlos@example.com");
+        engineer.setRole(Role.USER);
+
+        ConstructionProjectMember ownerMember = new ConstructionProjectMember();
+        ownerMember.setConstructionProject(project);
+        ownerMember.setUser(owner);
+        ownerMember.setRoleInProject("OWNER");
+        ownerMember.setMembershipStatus("ACTIVE");
+        ownerMember.setJoinedAt(Instant.now());
+
+        ConstructionProjectMember engineerMember = new ConstructionProjectMember();
+        engineerMember.setConstructionProject(project);
+        engineerMember.setUser(engineer);
+        engineerMember.setRoleInProject("ENGINEER");
+        engineerMember.setMembershipStatus("ACTIVE");
+        engineerMember.setJoinedAt(Instant.now());
+
+        when(repository.findById(50L)).thenReturn(Optional.of(project));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(memberRepository.findByConstructionProjectIdAndUserId(50L, 1L)).thenReturn(Optional.of(ownerMember));
+        when(memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(50L))
+                .thenReturn(List.of(ownerMember, engineerMember));
+
+        mockMvc.perform(get("/projects/50/members")
+                        .principal(auth(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user.id").value(1L))
+                .andExpect(jsonPath("$[1].user.id").value(4L))
+                .andExpect(jsonPath("$[1].roleInProject").value("ENGINEER"));
     }
 
     @Test
@@ -213,7 +345,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         when(repository.existsById(33L)).thenReturn(true);
         doNothing().when(repository).deleteById(33L);
 
-        mockMvc.perform(delete("/projects/33"))
+        mockMvc.perform(delete("/projects/33")
+                        .principal(auth(1L)))
                 .andExpect(status().isNoContent());
     }
 
@@ -222,7 +355,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     void deleteProject_notFound() throws Exception {
         when(repository.existsById(34L)).thenReturn(false);
 
-        mockMvc.perform(delete("/projects/34"))
+        mockMvc.perform(delete("/projects/34")
+                        .principal(auth(1L)))
                 .andExpect(status().isNotFound());
     }
 }
