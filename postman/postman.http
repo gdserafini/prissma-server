@@ -1,7 +1,7 @@
 ### Variables
 @host = http://localhost:8080
 ### usar para ADMIN:
-@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3OTA3MjEwNiwiZXhwIjoxNzc5MTU4NTA2fQ.tHSE9MyB4F0DnrimU47PSFHva2QBCTJdJZbNp55gt50
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzOCIsImVtYWlsIjoiam9hb0BleGFtcGxlLmNvbSIsInJvbGUiOiJFTkciLCJpYXQiOjE3Nzk2Nzc1ODMsImV4cCI6MTc3OTc2Mzk4M30.c8YvV_TCOosbhls7zRRBKpVMpfvsur2nBNBrn5Yh70g
 
 ### usar para USER:
 #@JWT_TOKEN =
@@ -29,9 +29,9 @@ Content-Type: application/json
 
 {
   "name": "João Silva",
-  "email": "joao3@example.com",
+  "email": "joao@example.com",
   "password": "Senha@123",
-  "role": "USER"
+  "role": "ENG"
 }
 
 ### 2. SEGUNDO: Login com ADMIN (Executar este para gerar o token JWT)
@@ -48,7 +48,7 @@ POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "joao3@example.com",
+  "email": "joao@example.com",
   "password": "Senha@123"
 }
 
@@ -105,7 +105,7 @@ Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
 {
-  "title": "Obra de Teste admin",
+  "title": "Obra de Teste teste",
   "cep": "80000-000",
   "street": "Rua das Flores",
   "number": "100",
@@ -126,11 +126,11 @@ GET {{host}}/projects
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Get project by id (replace 5 with created id)
-GET {{host}}/projects/5
+GET {{host}}/projects/6
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Update project (PATCH)
-PATCH {{host}}/projects/5
+PATCH {{host}}/projects/6
 Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -156,7 +156,7 @@ Authorization: Bearer {{JWT_TOKEN}}
 }
 
 ### List project members
-GET {{host}}/projects/5/members
+GET {{host}}/projects/6/members
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### Unauthenticated request (should return 401)
@@ -167,7 +167,7 @@ GET {{host}}/projects
 ### ============================================================
 
 ### 1. Criar uma etapa em um projeto
-POST {{host}}/projects/5/stages
+POST {{host}}/projects/6/stages
 Content-Type: application/json
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -181,7 +181,7 @@ Authorization: Bearer {{JWT_TOKEN}}
 }
 
 ### 2. Listar todas as etapas de um projeto
-GET {{host}}/projects/5/stages
+GET {{host}}/projects/6/stages
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### 3. Obter uma etapa específica

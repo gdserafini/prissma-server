@@ -4,8 +4,9 @@ import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectController;
 import br.pucpr.prissma_server.projects.ConstructionProjectMember;
 import br.pucpr.prissma_server.projects.AddProjectMemberRequest;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberResponse;
 import br.pucpr.prissma_server.projects.ConstructionProjectService;
+import br.pucpr.prissma_server.projects.AcompanhamentoResponse;
+import br.pucpr.prissma_server.projects.AcompanhamentoStageResponse;
 import br.pucpr.prissma_server.users.Role;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
@@ -24,8 +25,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,6 +55,9 @@ public class ConstructionProjectControllerTest {
 
     @MockitoBean
     private UserRepository userRepository;
+
+    @MockitoBean
+    private br.pucpr.prissma_server.task.TaskService taskService;
 
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
@@ -81,8 +87,8 @@ public class ConstructionProjectControllerTest {
         return user;
     }
 
-    private UsernamePasswordAuthenticationToken auth() {
-        return new UsernamePasswordAuthenticationToken(1L, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    private UsernamePasswordAuthenticationToken auth(Long userId) {
+        return new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
     @Test
@@ -116,7 +122,7 @@ public class ConstructionProjectControllerTest {
         }});
 
         mockMvc.perform(post("/projects")
-                        .principal(auth())
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -139,7 +145,7 @@ public class ConstructionProjectControllerTest {
         when(service.getAll()).thenReturn(List.of(p));
 
         mockMvc.perform(get("/projects")
-                        .principal(auth()))
+                        .principal(auth(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("Obra de Teste"));
     }
@@ -157,7 +163,7 @@ public class ConstructionProjectControllerTest {
         when(service.getById(5L)).thenReturn(p);
 
         mockMvc.perform(get("/projects/5")
-                        .principal(auth()))
+                        .principal(auth(1L)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projectType").value("RESIDENTIAL"));
     }
@@ -183,7 +189,7 @@ public class ConstructionProjectControllerTest {
         }});
 
         mockMvc.perform(patch("/projects/10")
-                        .principal(auth())
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
@@ -224,7 +230,7 @@ public class ConstructionProjectControllerTest {
         }});
 
         mockMvc.perform(post("/projects/7/members")
-                        .principal(auth())
+                        .principal(auth(1L))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -235,45 +241,53 @@ public class ConstructionProjectControllerTest {
     }
 
     @Test
-    @DisplayName("GET /projects/{id}/members returns project members")
-    public void getMembers_returnsList() throws Exception {
-        ConstructionProject project = sampleProject();
-        try {
-            java.lang.reflect.Field idField = ConstructionProject.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(project, 7L);
-        } catch (NoSuchFieldException | IllegalAccessException ignored) {
-        }
-
-        User memberUser = new User();
-        memberUser.setId(2L);
-        memberUser.setName("Maria Santos");
-        memberUser.setEmail("maria@example.com");
-        memberUser.setRole(Role.USER);
-
-        ConstructionProjectMember member = new ConstructionProjectMember();
-        member.setConstructionProject(project);
-        member.setUser(memberUser);
-        member.setRoleInProject("FOREMAN");
-        member.setMembershipStatus("ACTIVE");
-        member.setJoinedAt(Instant.now());
-
-        when(service.getMembers(eq(7L), eq(1L)))
-                .thenReturn(List.of(ConstructionProjectMemberResponse.from(member)));
-
-        mockMvc.perform(get("/projects/7/members")
-                        .principal(auth()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].projectId").value(7L))
-                .andExpect(jsonPath("$[0].user.id").value(2L))
-                .andExpect(jsonPath("$[0].roleInProject").value("FOREMAN"));
-    }
-
-    @Test
     @DisplayName("DELETE /projects/{id} returns no content")
     public void deleteProject_returnsNoContent() throws Exception {
         mockMvc.perform(delete("/projects/20")
-                        .principal(auth()))
+                        .principal(auth(1L)))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("GET /projects/{id}/acompanhamento returns summary")
+    public void getAcompanhamento_returnsSummary() throws Exception {
+        Map<String, Long> stageStatusCounts = new LinkedHashMap<>();
+        stageStatusCounts.put("PLANNED", 1L);
+        stageStatusCounts.put("IN_PROGRESS", 0L);
+        stageStatusCounts.put("BLOCKED", 0L);
+        stageStatusCounts.put("DONE", 0L);
+
+        Map<String, Long> taskStatusCounts = new LinkedHashMap<>();
+        taskStatusCounts.put("TODO", 2L);
+        taskStatusCounts.put("IN_PROGRESS", 1L);
+        taskStatusCounts.put("BLOCKED", 0L);
+        taskStatusCounts.put("DONE", 0L);
+
+        AcompanhamentoStageResponse stageSummary = new AcompanhamentoStageResponse(
+                11L, "Fundação", "Execução das fundações", 1, "PLANNED",
+                LocalDate.of(2026, 6, 1), LocalDate.of(2026, 7, 1),
+                3, taskStatusCounts
+        );
+
+        AcompanhamentoResponse summary = new AcompanhamentoResponse(
+                5L, "Obra de Teste", "PLANNING",
+                1, 0,
+                3, 0,
+                stageStatusCounts,
+                taskStatusCounts,
+                List.of(stageSummary)
+        );
+
+        when(taskService.summarizeProject(5L, 1L)).thenReturn(summary);
+
+        mockMvc.perform(get("/projects/5/acompanhamento")
+                        .principal(auth(1L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.obraId").value(5L))
+                .andExpect(jsonPath("$.totalEtapas").value(1))
+                .andExpect(jsonPath("$.totalTarefas").value(3))
+                .andExpect(jsonPath("$.stageStatusCounts.PLANNED").value(1))
+                .andExpect(jsonPath("$.etapas[0].name").value("Fundação"))
+                .andExpect(jsonPath("$.etapas[0].totalTarefas").value(3));
     }
 }

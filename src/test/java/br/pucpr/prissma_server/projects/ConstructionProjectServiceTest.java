@@ -41,11 +41,11 @@ class ConstructionProjectServiceTest {
     private User ownerUser;
     private User engineerUser;
     private User targetUser;
-    private User adminUser;
     private ConstructionProjectMember ownerMember;
+    private User adminUser;
     private ConstructionProjectMember engineerMember;
-    private ConstructionProjectMember targetMember;
 
+    private ConstructionProjectMember targetMember;
     @BeforeEach
     void setUp() {
         project = new ConstructionProject();
@@ -77,13 +77,13 @@ class ConstructionProjectServiceTest {
         targetUser.setEmail("target@example.com");
         targetUser.setRole(Role.USER);
 
+        ownerMember = new ConstructionProjectMember();
         adminUser = new User();
         adminUser.setId(99L);
         adminUser.setName("Admin");
         adminUser.setEmail("admin@example.com");
         adminUser.setRole(Role.ADMIN);
 
-        ownerMember = new ConstructionProjectMember();
         ownerMember.setConstructionProject(project);
         ownerMember.setUser(ownerUser);
         ownerMember.setRoleInProject("OWNER");
@@ -209,6 +209,7 @@ class ConstructionProjectServiceTest {
         assertEquals("Role in project must be ENGINEER, ARCHITECT, or FOREMAN", exception.getReason());
     }
 
+
     @Test
     @DisplayName("OWNER can list project members")
     void getMembers_asOwner_succeeds() {
@@ -270,5 +271,3 @@ class ConstructionProjectServiceTest {
         assertEquals("Project not found", exception.getReason());
     }
 }
-
-

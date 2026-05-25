@@ -3,7 +3,6 @@ package br.pucpr.prissma_server.stage;
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
-import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -72,10 +71,11 @@ public class StageService {
     public StageResponse create(Long projectId, StageRequest request, Long userId) {
         validateDates(request);
 
+        validateAuthorization(userId, projectId);
+
         ConstructionProject project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
-        validateAuthorization(userId, projectId);
 
         if (stageRepository.findByConstructionProjectIdAndDisplayOrder(projectId, request.getDisplayOrder()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,

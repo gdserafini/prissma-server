@@ -1,0 +1,154 @@
+### Variables (ajuste conforme seu ambiente)
+@host = http://localhost:8080
+@projectId = 6
+@stageId = 3
+@taskId = 1
+@assigneeUserId = 38
+
+### JWT
+## NÃO COMMITAR TOKENS REAIS no repositório. Cole aqui apenas um token de teste.
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzOCIsImVtYWlsIjoiam9hb0BleGFtcGxlLmNvbSIsInJvbGUiOiJFTkciLCJpYXQiOjE3Nzk2NzgyODIsImV4cCI6MTc3OTc2NDY4Mn0.dKZj368KBF9rESmlgGGlkgg0IjLZUvK2LjcgBW9gszY
+
+### INSTRUÇÕES RÁPIDAS
+### 1) Obtenha um JWT via sua rota de login (ex.: POST /auth/login) e cole em @JWT_TOKEN
+### 2) Substitua {{stageId}}, {{taskId}}, {{projectId}} e {{assigneeUserId}} conforme seu ambiente
+### 3) Se receber 404, confirme se está usando /stages/{id} (plural) e se o recurso pertence ao usuário
+
+### ============================================================
+### TASKS CRUD – vinculadas a Stage (use as variáveis acima)
+### ============================================================
+
+### Exemplo: obter projeto
+GET {{host}}/projects/{{projectId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### Listar etapas de um projeto
+GET {{host}}/projects/{{projectId}}/stages
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 1. Criar tarefa em uma etapa
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Escavação da fundação",
+  "description": "Executar escavação mecânica para sapatas e blocos",
+  "priority": "HIGH",
+  "status": "TODO",
+  "plannedStartDate": "2026-06-01",
+  "plannedEndDate": "2026-06-05",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 2. Listar tarefas da etapa
+GET {{host}}/stages/{{stageId}}/tasks
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 3. Obter tarefa específica
+GET {{host}}/stages/{{stageId}}/tasks/{{taskId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 4. Atualizar tarefa (PATCH parcial)
+PATCH {{host}}/stages/{{stageId}}/tasks/{{taskId}}
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "status": "IN_PROGRESS",
+  "priority": "MEDIUM",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 5. Concluir tarefa (exemplo rápido)
+PATCH {{host}}/stages/{{stageId}}/tasks/{{taskId}}
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "status": "DONE"
+}
+
+### 6. Remover tarefa
+DELETE {{host}}/stages/{{stageId}}/tasks/{{taskId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### ============================================================
+### EXEMPLOS DE ERRO / VALIDAÇÃO (use as mesmas variáveis)
+### ============================================================
+
+### 7. Erro: título em branco
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "",
+  "description": "Tarefa sem título",
+  "priority": "LOW",
+  "status": "TODO",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 8. Erro: prioridade inválida
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Tarefa com prioridade inválida",
+  "priority": "URGENT",
+  "status": "TODO",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 9. Erro: status inválido
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Tarefa com status inválido",
+  "priority": "MEDIUM",
+  "status": "WAITING",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 10. Erro: datas planejadas inválidas
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Datas inválidas",
+  "priority": "LOW",
+  "status": "TODO",
+  "plannedStartDate": "2026-06-10",
+  "plannedEndDate": "2026-06-01",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
+### 11. Erro: responsável sem role ENG
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Responsável inválido",
+  "priority": "HIGH",
+  "status": "TODO",
+  "assigneeUserId": 4
+}
+
+### 12. Erro: etapa inexistente
+POST {{host}}/stages/99999/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Tarefa em etapa inexistente",
+  "priority": "MEDIUM",
+  "status": "TODO",
+  "assigneeUserId": {{assigneeUserId}}
+}
+
