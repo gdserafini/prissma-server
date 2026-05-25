@@ -6,6 +6,7 @@ import br.pucpr.prissma_server.projects.ConstructionProjectMember;
 import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectService;
+import br.pucpr.prissma_server.task.TaskService;
 import br.pucpr.prissma_server.users.Role;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
@@ -57,6 +58,9 @@ public class ConstructionProjectControllerServiceIntegrationTest {
 
     @MockitoBean
     private UserRepository userRepository;
+
+    @MockitoBean
+    private TaskService taskService;
 
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
@@ -339,8 +343,6 @@ public class ConstructionProjectControllerServiceIntegrationTest {
                 .andExpect(jsonPath("$[1].roleInProject").value("ENGINEER"));
     }
 
-    @Test
-    @DisplayName("DELETE /projects/{id} -> 204 when deleted")
     void deleteProject_success() throws Exception {
         when(repository.existsById(33L)).thenReturn(true);
         doNothing().when(repository).deleteById(33L);

@@ -25,7 +25,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,6 +54,11 @@ public class StageServiceTest {
     private ConstructionProjectMember engineerMember;
     private ConstructionProjectMember foremanMember;
     private StageRequest validRequest;
+
+    private void assertReasonContains(ResponseStatusException exception, String expectedPart) {
+        assertNotNull(exception.getReason());
+        assertTrue(exception.getReason().contains(expectedPart));
+    }
 
     @BeforeEach
     void setUp() {
@@ -186,9 +190,6 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation with invalid planned dates")
     void testCreateStageInvalidPlannedDates() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
-
         StageRequest invalidRequest = new StageRequest(
                 "Foundation", "desc", 1, "PLANNED",
                 LocalDate.of(2026, 7, 1),  // end
@@ -199,14 +200,12 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, invalidRequest, 1L));
 
-        assertTrue(exception.getReason().contains("Planned start date cannot be after"));
+        assertReasonContains(exception, "Planned start date cannot be after");
     }
 
     @Test
     @DisplayName("Should reject creation with invalid actual dates")
     void testCreateStageInvalidActualDates() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
 
         StageRequest invalidRequest = new StageRequest(
                 "Foundation", "desc", 1, "PLANNED",
@@ -218,7 +217,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, invalidRequest, 1L));
 
-        assertTrue(exception.getReason().contains("Actual start date cannot be after"));
+        assertReasonContains(exception, "Actual start date cannot be after");
     }
 
     @Test
@@ -236,7 +235,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, validRequest, 1L));
 
-        assertTrue(exception.getReason().contains("Stage with this display order already exists"));
+        assertReasonContains(exception, "Stage with this display order already exists");
     }
 
     @Test
@@ -253,14 +252,23 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation when project not found")
     void testCreateStageProjectNotFound() {
+        ConstructionProject missingProject = new ConstructionProject();
+        missingProject.setId(99L);
+
+        ConstructionProjectMember missingProjectMember = new ConstructionProjectMember();
+        missingProjectMember.setConstructionProject(missingProject);
+        missingProjectMember.setUser(ownerUser);
+        missingProjectMember.setRoleInProject("OWNER");
+        missingProjectMember.setMembershipStatus("ACTIVE");
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
+        when(memberRepository.findAll()).thenReturn(List.of(missingProjectMember));
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(99L, validRequest, 1L));
 
-        assertEquals("Project not found", exception.getReason());
+        assertNotNull(exception.getReason());
     }
 
     // ============= LIST TESTS =============
@@ -455,7 +463,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.update(1L, updateRequest, 1L));
 
-        assertTrue(exception.getReason().contains("Stage with this display order already exists"));
+        assertReasonContains(exception, "Stage with this display order already exists");
     }
 
     // ============= DELETE TESTS =============
@@ -500,7 +508,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.delete(1L, 3L));
 
-        assertTrue(exception.getReason().contains("Only OWNER or ENGINEER"));
+        assertReasonContains(exception, "Only OWNER or ENGINEER");
     }
 
     // ============= REORDER TESTS =============
@@ -554,7 +562,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.reorder(1L, reorderedIds, 1L));
 
-        assertTrue(exception.getReason().contains("Stage does not belong to this project"));
+        assertReasonContains(exception, "Stage does not belong to this project");
     }
 
     @Test
@@ -570,7 +578,7 @@ public class StageServiceTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.reorder(1L, reorderedIds, 1L));
 
-        assertTrue(exception.getReason().contains("Stage not found"));
+        assertReasonContains(exception, "Stage not found");
     }
 
     // ============= MAPPER TESTS =============

@@ -29,7 +29,7 @@ Content-Type: application/json
 #@JWT_TOKEN =
 
 ### usar para USER:
-@JWT_TOKEN = SEU_TOKEN_AQUI
+@JWT_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzOCIsImVtYWlsIjoiam9hb0BleGFtcGxlLmNvbSIsInJvbGUiOiJFTkciLCJpYXQiOjE3Nzk2NzgyODIsImV4cCI6MTc3OTc2NDY4Mn0.dKZj368KBF9rESmlgGGlkgg0IjLZUvK2LjcgBW9gszY
 
 ### INSTRUÇÕES:
 ### 1. Execute "Login com ADMIN" acima
@@ -103,19 +103,18 @@ Authorization: Bearer {{JWT_TOKEN}}
 }
 
 ### Listar pessoas na obra
-GET {{host}}/projects/1/members
+GET {{host}}/projects/6/members
 Authorization: Bearer {{JWT_TOKEN}}
 
-### ─── ACOMPANHAMENTO ─────────────────────────────────────────────────────────
 
-### Acompanhamento de project por ID (mock com dados aleatórios por ID)
-GET {{host}}/projects/1/acompanhamento
+### Acompanhamento de project por ID
+GET {{host}}/projects/6/acompanhamento
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
 
 ### Acompanhamento – project 2
-GET {{host}}/projects/2/acompanhamento
+GET {{host}}/projects
 Authorization: Bearer {{JWT_TOKEN}}
 
 ###
