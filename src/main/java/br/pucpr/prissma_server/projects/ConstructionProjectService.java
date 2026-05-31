@@ -1,5 +1,6 @@
 package br.pucpr.prissma_server.projects;
 
+import br.pucpr.prissma_server.task.TaskRepository;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -8,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,38 +19,24 @@ public class ConstructionProjectService {
     private final ConstructionProjectRepository repository;
     private final ConstructionProjectMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final ProjectPermissionService permissionService;
+    private final TaskRepository taskRepository;
 
     public ConstructionProjectService(ConstructionProjectRepository repository,
                                       ConstructionProjectMemberRepository memberRepository,
-                                      UserRepository userRepository) {
+                                      UserRepository userRepository,
+                                      ProjectPermissionService permissionService,
+                                      TaskRepository taskRepository) {
         this.repository = repository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
+        this.taskRepository = taskRepository;
     }
 
     private void requireText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-        }
-    }
-
-    private void requireProjectManager(Long projectId, Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-
-        if (!"ACTIVE".equals(member.getMembershipStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not an active member of this project");
-        }
-
-        String roleInProject = member.getRoleInProject();
-        if (!"OWNER".equals(roleInProject) && !"ENGINEER".equals(roleInProject)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Only OWNER or ENGINEER can manage project members");
         }
     }
 
@@ -113,7 +101,7 @@ public class ConstructionProjectService {
         ConstructionProject project = repository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
-        requireProjectManager(projectId, actorUserId);
+        permissionService.requirePermission(projectId, actorUserId, ProjectPermission.MANAGE_MEMBERS);
 
         User targetUser = userRepository.findById(request.userId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -154,6 +142,89 @@ public class ConstructionProjectService {
         return memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(projectId).stream()
                 .map(ConstructionProjectMemberResponse::from)
                 .toList();
+    }
+
+    @Transactional
+    public ConstructionProjectMember updateMemberRole(Long projectId, Long actorUserId,
+                                                      Long memberId, String roleInProject) {
+        repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        permissionService.requirePermission(projectId, actorUserId, ProjectPermission.MANAGE_MEMBERS);
+
+        ProjectRole newRole = ProjectRole.fromString(roleInProject);
+
+        ConstructionProjectMember member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        if (!member.getConstructionProject().getId().equals(projectId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "User is not a member of this project");
+        }
+
+        member.setRoleInProject(newRole.name());
+        return memberRepository.save(member);
+    }
+
+    @Transactional
+    public void removeMember(Long projectId, Long actorUserId, Long memberId) {
+        repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        permissionService.requirePermission(projectId, actorUserId, ProjectPermission.MANAGE_MEMBERS);
+
+        ConstructionProjectMember member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        if (!member.getConstructionProject().getId().equals(projectId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "User is not a member of this project");
+        }
+
+        if (ProjectRole.OWNER.name().equals(member.getRoleInProject())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot remove the project owner");
+        }
+
+        long activeTasks = taskRepository.countActiveTasksForUserInProject(projectId, member.getUser().getId());
+        if (activeTasks > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Member has active tasks and cannot be removed");
+        }
+
+        memberRepository.delete(member);
+    }
+
+    @Transactional(readOnly = true)
+    public RolePermissionsResponse getRolePermissions(Long projectId, Long actorUserId, String roleName) {
+        repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        permissionService.requirePermission(projectId, actorUserId, ProjectPermission.VIEW_PROJECT);
+
+        ProjectRole role = ProjectRole.fromString(roleName);
+        Set<ProjectPermission> permissions = permissionService.effectivePermissions(projectId, role);
+        return toRolePermissionsResponse(role, permissions);
+    }
+
+    @Transactional
+    public RolePermissionsResponse updateRolePermissions(Long projectId, Long actorUserId,
+                                                         String roleName, List<String> permissionNames) {
+        ProjectRole role = ProjectRole.fromString(roleName);
+
+        Set<ProjectPermission> requested = (permissionNames == null ? List.<String>of() : permissionNames)
+                .stream()
+                .map(ProjectPermission::fromString)
+                .collect(java.util.stream.Collectors.toCollection(
+                        () -> java.util.EnumSet.noneOf(ProjectPermission.class)));
+
+        Set<ProjectPermission> result = permissionService.updateRolePermissions(projectId, actorUserId, role, requested);
+        return toRolePermissionsResponse(role, result);
+    }
+
+    private RolePermissionsResponse toRolePermissionsResponse(ProjectRole role, Set<ProjectPermission> permissions) {
+        List<String> names = permissions.stream().map(Enum::name).sorted().toList();
+        return new RolePermissionsResponse(role.name(), names);
     }
 
     public List<ConstructionProject> getAll() {

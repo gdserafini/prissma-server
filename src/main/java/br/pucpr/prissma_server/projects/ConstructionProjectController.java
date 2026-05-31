@@ -53,10 +53,8 @@ public class ConstructionProjectController {
 
         List<ConstructionProject> projects;
         if (user.getRole() == Role.ADMIN) {
-            // Admin sees all projects
             projects = service.getAll();
         } else {
-            // Other users see only their linked projects
             projects = service.getAllForUser(userId);
         }
 
@@ -97,6 +95,44 @@ public class ConstructionProjectController {
         Long userId = resolveUserId(auth);
         List<ConstructionProjectMemberResponse> members = service.getMembers(projectId, userId);
         return ResponseEntity.ok(members);
+    }
+
+    @PatchMapping("/{projectId}/members/{memberId}/role")
+    public ResponseEntity<ConstructionProjectMemberResponse> updateMemberRole(@PathVariable Long projectId,
+                                                                              @PathVariable Long memberId,
+                                                                              @RequestBody UpdateMemberRoleRequest request,
+                                                                              Authentication auth) {
+        Long userId = resolveUserId(auth);
+        ConstructionProjectMember member = service.updateMemberRole(projectId, userId, memberId,
+                request == null ? null : request.roleInProject());
+        return ResponseEntity.ok(ConstructionProjectMemberResponse.from(member));
+    }
+
+    @DeleteMapping("/{projectId}/members/{memberId}")
+    public ResponseEntity<Void> removeMember(@PathVariable Long projectId,
+                                             @PathVariable Long memberId,
+                                             Authentication auth) {
+        Long userId = resolveUserId(auth);
+        service.removeMember(projectId, userId, memberId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{projectId}/roles/{role}/permissions")
+    public ResponseEntity<RolePermissionsResponse> getRolePermissions(@PathVariable Long projectId,
+                                                                      @PathVariable String role,
+                                                                      Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(service.getRolePermissions(projectId, userId, role));
+    }
+
+    @PutMapping("/{projectId}/roles/{role}/permissions")
+    public ResponseEntity<RolePermissionsResponse> updateRolePermissions(@PathVariable Long projectId,
+                                                                         @PathVariable String role,
+                                                                         @RequestBody UpdateRolePermissionsRequest request,
+                                                                         Authentication auth) {
+        Long userId = resolveUserId(auth);
+        List<String> permissions = request == null ? null : request.permissions();
+        return ResponseEntity.ok(service.updateRolePermissions(projectId, userId, role, permissions));
     }
 
     @GetMapping("/{id}/acompanhamento")
