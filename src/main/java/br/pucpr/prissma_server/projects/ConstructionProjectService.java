@@ -156,6 +156,25 @@ public class ConstructionProjectService {
                 .toList();
     }
 
+    @Transactional
+    public void removeMember(Long projectId, Long actorUserId, Long targetUserId) {
+        // ensure project exists
+        repository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        // only OWNER or ENGINEER can remove members
+        requireProjectManager(projectId, actorUserId);
+
+        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, targetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project member not found"));
+
+        if ("OWNER".equals(member.getRoleInProject())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove project owner");
+        }
+
+        memberRepository.delete(member);
+    }
+
     public List<ConstructionProject> getAll() {
         return repository.findAll();
     }

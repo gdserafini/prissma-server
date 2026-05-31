@@ -15,12 +15,14 @@ public class TaskRequest {
     private LocalDate plannedStartDate;
     private LocalDate plannedEndDate;
     private Long assigneeUserId;
+    private String assigneeName;
 
     public TaskRequest() {
     }
 
     public TaskRequest(String title, String description, String priority, String status,
-                       LocalDate plannedStartDate, LocalDate plannedEndDate, Long assigneeUserId) {
+                       LocalDate plannedStartDate, LocalDate plannedEndDate, Long assigneeUserId,
+                       String assigneeName) {
         this.title = title;
         this.description = description;
         this.priority = priority;
@@ -28,6 +30,12 @@ public class TaskRequest {
         this.plannedStartDate = plannedStartDate;
         this.plannedEndDate = plannedEndDate;
         this.assigneeUserId = assigneeUserId;
+        this.assigneeName = assigneeName;
+    }
+
+    public TaskRequest(String title, String description, String priority, String status,
+                       LocalDate plannedStartDate, LocalDate plannedEndDate, Long assigneeUserId) {
+        this(title, description, priority, status, plannedStartDate, plannedEndDate, assigneeUserId, null);
     }
 
     public String getTitle() {
@@ -84,6 +92,14 @@ public class TaskRequest {
 
     public void setAssigneeUserId(Long assigneeUserId) {
         this.assigneeUserId = assigneeUserId;
+    }
+
+    public String getAssigneeName() {
+        return assigneeName;
+    }
+
+    public void setAssigneeName(String assigneeName) {
+        this.assigneeName = assigneeName;
     }
 }
 

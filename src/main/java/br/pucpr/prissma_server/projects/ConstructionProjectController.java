@@ -99,6 +99,15 @@ public class ConstructionProjectController {
         return ResponseEntity.ok(members);
     }
 
+    @DeleteMapping("/{projectId}/members/{userId}")
+    public ResponseEntity<Void> removeMember(@PathVariable Long projectId,
+                                             @PathVariable Long userId,
+                                             Authentication auth) {
+        Long actorUserId = resolveUserId(auth);
+        service.removeMember(projectId, actorUserId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{id}/acompanhamento")
     public ResponseEntity<AcompanhamentoResponse> getAcompanhamento(@PathVariable Long id,
                                                                     Authentication auth) {

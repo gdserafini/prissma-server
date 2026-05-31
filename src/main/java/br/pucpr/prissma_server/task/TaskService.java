@@ -62,8 +62,6 @@ public class TaskService {
         requireText(request.getTitle(), "Title is required");
         validateDates(request.getPlannedStartDate(), request.getPlannedEndDate());
 
-        User assignee = loadAssignee(request.getAssigneeUserId(), true);
-
         Task task = new Task();
         task.setStage(stage);
         task.setTitle(request.getTitle().trim());
@@ -72,7 +70,7 @@ public class TaskService {
         task.setStatus(normalizeOrDefault(request.getStatus(), "TODO", TASK_STATUSES, "Status must be TODO, IN_PROGRESS, BLOCKED, or DONE"));
         task.setPlannedStartDate(request.getPlannedStartDate());
         task.setPlannedEndDate(request.getPlannedEndDate());
-        task.setAssigneeUser(assignee);
+        applyAssignee(task, request);
         applyStatusSideEffects(task, task.getStatus());
 
         Instant now = Instant.now();
@@ -139,9 +137,7 @@ public class TaskService {
                 task.setPlannedEndDate(request.getPlannedEndDate());
             }
         }
-        if (request.getAssigneeUserId() != null) {
-            task.setAssigneeUser(loadAssignee(request.getAssigneeUserId(), true));
-        }
+        applyAssignee(task, request);
 
         task.setUpdatedAt(Instant.now());
         return TaskMapper.toResponse(taskRepository.save(task));
@@ -225,19 +221,27 @@ public class TaskService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    private User loadAssignee(Long userId, boolean required) {
-        if (userId == null) {
-            if (required) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignee user id is required");
-            }
-            return null;
-        }
+    private User loadAssignee(Long userId) {
         User assignee = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee user not found"));
         if (assignee.getRole() != Role.ENG) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignee user must have role ENG");
         }
         return assignee;
+    }
+
+    private void applyAssignee(Task task, TaskRequest request) {
+        if (request.getAssigneeUserId() != null) {
+            task.setAssigneeUser(loadAssignee(request.getAssigneeUserId()));
+            task.setAssigneeName(null);
+            return;
+        }
+
+        if (request.getAssigneeName() != null) {
+            requireText(request.getAssigneeName(), "Assignee name is required");
+            task.setAssigneeUser(null);
+            task.setAssigneeName(request.getAssigneeName().trim());
+        }
     }
 
     private void validateDates(java.time.LocalDate start, java.time.LocalDate end) {
