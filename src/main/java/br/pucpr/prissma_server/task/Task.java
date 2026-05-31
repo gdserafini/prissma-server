@@ -23,6 +23,9 @@ public class Task {
     @JoinColumn(name = "assignee_user_id")
     private User assigneeUser;
 
+    @Column(name = "assignee_name")
+    private String assigneeName;
+
     @Column(nullable = false)
     private String title;
 
@@ -71,6 +74,14 @@ public class Task {
 
     public void setAssigneeUser(User assigneeUser) {
         this.assigneeUser = assigneeUser;
+    }
+
+    public String getAssigneeName() {
+        return assigneeName;
+    }
+
+    public void setAssigneeName(String assigneeName) {
+        this.assigneeName = assigneeName;
     }
 
     public String getTitle() {

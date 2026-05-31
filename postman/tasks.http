@@ -4,6 +4,7 @@
 @stageId = 3
 @taskId = 1
 @assigneeUserId = 38
+@assigneeName = Pedreiro João
 
 ### JWT
 ## NÃO COMMITAR TOKENS REAIS no repositório. Cole aqui apenas um token de teste.
@@ -38,7 +39,7 @@ Authorization: Bearer {{JWT_TOKEN}}
   "status": "TODO",
   "plannedStartDate": "2026-06-01",
   "plannedEndDate": "2026-06-05",
-  "assigneeUserId": {{assigneeUserId}}
+  "assigneeName": "{{assigneeName}}"
 }
 
 ### 2. Listar tarefas da etapa
@@ -138,6 +139,18 @@ Authorization: Bearer {{JWT_TOKEN}}
   "priority": "HIGH",
   "status": "TODO",
   "assigneeUserId": 4
+}
+
+### 11b. Exemplo: responsável externo sem cadastro
+POST {{host}}/stages/{{stageId}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Serviço do pedreiro",
+  "priority": "HIGH",
+  "status": "TODO",
+  "assigneeName": "{{assigneeName}}"
 }
 
 ### 12. Erro: etapa inexistente
