@@ -48,8 +48,17 @@ public class StorageProperties {
     }
 
     public static class Limits {
-        private long maxFileSizeBytes = 10L * 1024 * 1024;
-        private List<String> allowedContentTypes = List.of("application/pdf", "image/png");
+        private long maxFileSizeBytes = 50L * 1024 * 1024;
+        private List<String> allowedContentTypes = List.of(
+                "application/pdf",
+                "image/png",
+                "image/jpeg",
+                "image/gif",
+                "image/bmp",
+                "image/tiff",
+                "image/webp",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
 
         public long getMaxFileSizeBytes() {
             return maxFileSizeBytes;

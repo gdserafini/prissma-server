@@ -15,10 +15,16 @@ app:
     local:
       root: ./var/storage
     limits:
-      max-file-size-bytes: 10485760
+      max-file-size-bytes: 52428800
       allowed-content-types:
         - application/pdf
         - image/png
+        - image/jpeg
+        - image/gif
+        - image/bmp
+        - image/tiff
+        - image/webp
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
 spring:
   application:
@@ -37,8 +43,8 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
   mail:
     host: smtp.gmail.com
     port: 587
