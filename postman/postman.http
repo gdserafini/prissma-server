@@ -159,6 +159,19 @@ Authorization: Bearer {{JWT_TOKEN}}
 GET {{host}}/projects/6/members
 Authorization: Bearer {{JWT_TOKEN}}
 
+### Update member role in project
+PATCH {{host}}/projects/6/members/1/role
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "roleInProject": "SUPERVISOR"
+}
+
+### Remove member from project
+DELETE {{host}}/projects/6/members/1
+Authorization: Bearer {{JWT_TOKEN}}
+
 ### Unauthenticated request (should return 401)
 GET {{host}}/projects
 

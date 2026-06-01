@@ -106,6 +106,19 @@ Authorization: Bearer {{JWT_TOKEN}}
 GET {{host}}/projects/6/members
 Authorization: Bearer {{JWT_TOKEN}}
 
+### Atualizar papel do membro na obra
+PATCH {{host}}/projects/6/members/1/role
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "roleInProject": "SUPERVISOR"
+}
+
+### Remover membro da obra
+DELETE {{host}}/projects/6/members/1
+Authorization: Bearer {{JWT_TOKEN}}
+
 
 ### Acompanhamento de project por ID
 GET {{host}}/projects/6/acompanhamento
