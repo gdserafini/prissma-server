@@ -81,6 +81,10 @@ public class ProjectPermissionService {
         requirePermission(projectId, actorUserId, ProjectPermission.MANAGE_MEMBERS);
 
         rolePermissionRepository.deleteAllByConstructionProjectIdAndRole(projectId, role);
+        // Força a execução do DELETE antes dos INSERTs abaixo. Sem isso, o Hibernate
+        // reordena as operações no flush (INSERTs antes de DELETEs) e as linhas antigas
+        // ainda presentes violam a constraint única (obra, papel, permissão).
+        rolePermissionRepository.flush();
 
         Set<ProjectPermission> result = permissions.isEmpty()
                 ? EnumSet.noneOf(ProjectPermission.class)

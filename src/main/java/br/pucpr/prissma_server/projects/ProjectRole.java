@@ -16,7 +16,9 @@ public enum ProjectRole {
     ARCHITECT(EnumSet.of(VIEW_PROJECT, MANAGE_ATTACHMENTS)),
 
     FOREMAN(EnumSet.of(VIEW_PROJECT, MANAGE_BUDGET, MANAGE_TEAMS,
-            MANAGE_TASKS, MANAGE_ATTACHMENTS));
+            MANAGE_TASKS, MANAGE_ATTACHMENTS)),
+
+    USER(EnumSet.of(VIEW_PROJECT));
 
     private final Set<ProjectPermission> defaultPermissions;
 
@@ -36,7 +38,7 @@ public enum ProjectRole {
             return ProjectRole.valueOf(value.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Role in project must be one of OWNER, ENGINEER, ARCHITECT or FOREMAN");
+                    "Role in project must be one of OWNER, ENGINEER, ARCHITECT, FOREMAN or USER");
         }
     }
 }

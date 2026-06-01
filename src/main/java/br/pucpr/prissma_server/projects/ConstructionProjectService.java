@@ -113,7 +113,7 @@ public class ConstructionProjectService {
         String roleInProject = request.roleInProject().trim().toUpperCase();
         if (!List.of("ENGINEER", "ARCHITECT", "FOREMAN", "USER").contains(roleInProject)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Role in project must be ENGINEER, ARCHITECT, USER, or FOREMAN");
+                    "Role in project must be ENGINEER, ARCHITECT, FOREMAN, or USER");
         }
 
         if (memberRepository.findByConstructionProjectIdAndUserId(projectId, targetUser.getId()).isPresent()) {
