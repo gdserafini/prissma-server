@@ -12,6 +12,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT t FROM Task t LEFT JOIN FETCH t.stage LEFT JOIN FETCH t.assigneeUser WHERE t.stage.id = :stageId ORDER BY t.createdAt ASC, t.id ASC")
     List<Task> findByStageIdOrderByCreatedAtAscIdAsc(@Param("stageId") Long stageId);
 
+    @Query("SELECT t FROM Task t LEFT JOIN FETCH t.stage LEFT JOIN FETCH t.assigneeUser WHERE t.assigneeUser.id = :userId ORDER BY t.createdAt ASC, t.id ASC")
+    List<Task> findByAssigneeUserIdOrderByCreatedAtAscIdAsc(@Param("userId") Long userId);
+
     @Query("SELECT t FROM Task t LEFT JOIN FETCH t.stage LEFT JOIN FETCH t.assigneeUser WHERE t.stage.constructionProject.id = :projectId ORDER BY t.createdAt ASC, t.id ASC")
     List<Task> findByStageConstructionProjectIdOrderByCreatedAtAscIdAsc(@Param("projectId") Long projectId);
 
