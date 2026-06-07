@@ -1,5 +1,7 @@
 package br.pucpr.prissma_server.users;
 
+import br.pucpr.prissma_server.task.TaskResponse;
+import br.pucpr.prissma_server.task.TaskService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -13,10 +15,23 @@ public class UserController {
 
     private final UserService service;
     private final UserValidator validator;
+    private final TaskService taskService;
 
-    public UserController(UserService service, UserValidator validator) {
+    public UserController(UserService service, UserValidator validator, TaskService taskService) {
         this.service = service;
         this.validator = validator;
+        this.taskService = taskService;
+    }
+
+    private Long resolveUserId(Authentication auth) {
+        Object principal = auth.getPrincipal();
+        if (principal instanceof Long userId) {
+            return userId;
+        }
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.valueOf(auth.getName());
     }
 
     @PostMapping
@@ -33,8 +48,14 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMe(Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
+        Long userId = resolveUserId(auth);
         return ResponseEntity.ok(UserResponse.from(service.getUserById(userId)));
+    }
+
+    @GetMapping("/me/tasks")
+    public ResponseEntity<List<TaskResponse>> getMyTasks(Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(taskService.listAssignedToUser(userId));
     }
 
     @GetMapping("/{id}")

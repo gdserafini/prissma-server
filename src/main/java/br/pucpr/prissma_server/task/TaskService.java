@@ -91,6 +91,15 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
+    public List<TaskResponse> listAssignedToUser(Long userId) {
+        loadUser(userId);
+
+        return taskRepository.findByAssigneeUserIdOrderByCreatedAtAscIdAsc(userId).stream()
+                .map(TaskMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public TaskResponse get(Long stageId, Long taskId, Long actorUserId) {
         Stage stage = loadStage(stageId);
         User actor = loadUser(actorUserId);
