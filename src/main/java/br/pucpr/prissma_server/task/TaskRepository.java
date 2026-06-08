@@ -24,6 +24,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT COUNT(t) FROM Task t WHERE t.assigneeUser.id = :userId " +
             "AND t.stage.constructionProject.id = :projectId AND t.status <> 'DONE'")
     long countActiveTasksForUserInProject(@Param("projectId") Long projectId, @Param("userId") Long userId);
-}
 
+    boolean existsByAssigneeUserId(Long userId);
+}
 

@@ -48,6 +48,7 @@ class UserControllerTest {
         TaskResponse task = new TaskResponse(
                 100L,
                 2L,
+                1L,
                 "Fundação",
                 10L,
                 "João Silva",
@@ -69,11 +70,11 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(100L))
                 .andExpect(jsonPath("$[0].stageId").value(2L))
+                .andExpect(jsonPath("$[0].projectId").value(1L))
                 .andExpect(jsonPath("$[0].stageName").value("Fundação"))
                 .andExpect(jsonPath("$[0].assigneeUserId").value(10L))
                 .andExpect(jsonPath("$[0].assigneeName").value("João Silva"))
                 .andExpect(jsonPath("$[0].status").value("TODO"));
     }
 }
-
 

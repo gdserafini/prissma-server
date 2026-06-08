@@ -1,5 +1,6 @@
 package br.pucpr.prissma_server.users;
 
+import br.pucpr.prissma_server.task.TaskRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -11,13 +12,16 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository repository;
+    private final TaskRepository taskRepository;
     private final UserValidator validator;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository repository,
+                       TaskRepository taskRepository,
                        UserValidator validator,
                        PasswordEncoder passwordEncoder) {
         this.repository = repository;
+        this.taskRepository = taskRepository;
         this.validator = validator;
         this.passwordEncoder = passwordEncoder;
     }
@@ -77,6 +81,10 @@ public class UserService {
     public void deleteUser(Long id) {
         if (!repository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        if (taskRepository.existsByAssigneeUserId(id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Não é possível excluir o usuário pois há tarefa vinculada");
         }
         repository.deleteById(id);
     }

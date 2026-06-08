@@ -13,6 +13,9 @@ public final class TaskMapper {
         return new TaskResponse(
                 task.getId(),
                 task.getStage() != null ? task.getStage().getId() : null,
+                task.getStage() != null && task.getStage().getConstructionProject() != null
+                        ? task.getStage().getConstructionProject().getId()
+                        : null,
                 task.getStage() != null ? task.getStage().getName() : null,
                 task.getAssigneeUser() != null ? task.getAssigneeUser().getId() : null,
                 task.getAssigneeUser() != null ? task.getAssigneeUser().getName() : task.getAssigneeName(),
@@ -29,4 +32,3 @@ public final class TaskMapper {
         );
     }
 }
-

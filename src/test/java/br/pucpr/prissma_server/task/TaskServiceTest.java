@@ -91,6 +91,7 @@ class TaskServiceTest {
         assertEquals(1, responses.size());
         assertEquals(100L, responses.getFirst().getId());
         assertEquals(2L, responses.getFirst().getStageId());
+        assertEquals(1L, responses.getFirst().getProjectId());
         assertEquals("Fundação", responses.getFirst().getStageName());
         assertEquals(10L, responses.getFirst().getAssigneeUserId());
         assertEquals("João Silva", responses.getFirst().getAssigneeName());
@@ -108,5 +109,4 @@ class TaskServiceTest {
         assertEquals("User not found", exception.getReason());
     }
 }
-
 

@@ -7,6 +7,7 @@ public class TaskResponse {
 
     private Long id;
     private Long stageId;
+    private Long projectId;
     private String stageName;
     private Long assigneeUserId;
     private String assigneeName;
@@ -22,11 +23,12 @@ public class TaskResponse {
     public TaskResponse() {
     }
 
-    public TaskResponse(Long id, Long stageId, String stageName, Long assigneeUserId, String assigneeName,
+    public TaskResponse(Long id, Long stageId, Long projectId, String stageName, Long assigneeUserId, String assigneeName,
                         String assigneeRole, String title, String description, String priority, String status,
                         LocalDate plannedStartDate, LocalDate plannedEndDate, Instant completedAt) {
         this.id = id;
         this.stageId = stageId;
+        this.projectId = projectId;
         this.stageName = stageName;
         this.assigneeUserId = assigneeUserId;
         this.assigneeName = assigneeName;
@@ -46,6 +48,10 @@ public class TaskResponse {
 
     public Long getStageId() {
         return stageId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
     }
 
     public String getStageName() {
@@ -92,4 +98,3 @@ public class TaskResponse {
         return completedAt;
     }
 }
-
