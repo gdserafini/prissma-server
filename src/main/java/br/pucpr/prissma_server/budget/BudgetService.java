@@ -76,14 +76,13 @@ public class BudgetService {
     }
 
     private void requireProjectAccess(Long projectId, Long userId) {
-        requireActiveMember(projectId, userId);
+        ConstructionProjectMember member = requireActiveMember(projectId, userId);
+        if(member == null) return;
     }
 
     private void requireBudgetManager(Long projectId, Long userId) {
         ConstructionProjectMember member = requireActiveMember(projectId, userId);
-        if (member == null) {
-            return;
-        }
+        if (member == null) return;
         if (!MANAGER_ROLES.contains(member.getRoleInProject())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Only OWNER, ENGINEER or FOREMAN can manage the budget");
@@ -103,6 +102,30 @@ public class BudgetService {
     private Expense requireExpense(Long expenseId) {
         return expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Expense not found"));
+    }
+
+    /**
+     * Resolve a etapa (Stage) informada, garantindo que ela pertence ao projeto.
+     * Retorna {@code null} quando nenhum stageId é enviado.
+     */
+    private Stage resolveStage(Long stageId, Long projectId) {
+        if (stageId == null) {
+            return null;
+        }
+        Stage stage = stageRepository.findById(stageId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stage not found"));
+        if (!stage.getConstructionProject().getId().equals(projectId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Stage does not belong to this project");
+        }
+        return stage;
+    }
+
+    /**
+     * Indica se o valor gasto ultrapassou o valor planejado.
+     */
+    private boolean isExceeded(BigDecimal spent, BigDecimal planned) {
+        return spent.compareTo(planned) > 0;
     }
 
     @Transactional
@@ -238,15 +261,7 @@ public class BudgetService {
         Long projectId = budget.getConstructionProject().getId();
         requireBudgetManager(projectId, userId);
 
-        Stage stage = null;
-        if (request.getStageId() != null) {
-            stage = stageRepository.findById(request.getStageId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stage not found"));
-            if (!stage.getConstructionProject().getId().equals(projectId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Stage does not belong to this project");
-            }
-        }
+        Stage stage = resolveStage(request.getStageId(), projectId);
 
         Expense expense = BudgetMapper.toEntity(request, item, stage);
         expense.setCreatedAt(Instant.now());
@@ -254,8 +269,8 @@ public class BudgetService {
 
         BigDecimal categorySpent = expenseRepository.sumAmountByBudgetItemId(item.getId());
         BigDecimal budgetSpent = expenseRepository.sumAmountByProjectBudgetId(budget.getId());
-        boolean categoryExceeded = categorySpent.compareTo(item.getPlannedAmount()) > 0;
-        boolean budgetExceeded = budgetSpent.compareTo(budget.getPlannedTotal()) > 0;
+        boolean categoryExceeded = isExceeded(categorySpent, item.getPlannedAmount());
+        boolean budgetExceeded = isExceeded(budgetSpent, budget.getPlannedTotal());
 
         touchBudget(budget);
         return BudgetMapper.toResponse(saved, categoryExceeded, budgetExceeded);
@@ -269,8 +284,8 @@ public class BudgetService {
 
         BigDecimal categorySpent = expenseRepository.sumAmountByBudgetItemId(itemId);
         BigDecimal budgetSpent = expenseRepository.sumAmountByProjectBudgetId(budget.getId());
-        boolean categoryExceeded = categorySpent.compareTo(item.getPlannedAmount()) > 0;
-        boolean budgetExceeded = budgetSpent.compareTo(budget.getPlannedTotal()) > 0;
+        boolean categoryExceeded = isExceeded(categorySpent, item.getPlannedAmount());
+        boolean budgetExceeded = isExceeded(budgetSpent, budget.getPlannedTotal());
 
         return expenseRepository.findByBudgetItemIdOrderBySpentAtDesc(itemId).stream()
                 .map(e -> BudgetMapper.toResponse(e, categoryExceeded, budgetExceeded))
@@ -283,14 +298,14 @@ public class BudgetService {
         requireProjectAccess(budget.getConstructionProject().getId(), userId);
 
         BigDecimal budgetSpent = expenseRepository.sumAmountByProjectBudgetId(budgetId);
-        boolean budgetExceeded = budgetSpent.compareTo(budget.getPlannedTotal()) > 0;
+        boolean budgetExceeded = isExceeded(budgetSpent, budget.getPlannedTotal());
 
         return expenseRepository.findByProjectBudgetId(budgetId).stream()
                 .map(e -> {
                     BigDecimal categorySpent = expenseRepository
                             .sumAmountByBudgetItemId(e.getBudgetItem().getId());
-                    boolean categoryExceeded = categorySpent
-                            .compareTo(e.getBudgetItem().getPlannedAmount()) > 0;
+                    boolean categoryExceeded = isExceeded(categorySpent,
+                            e.getBudgetItem().getPlannedAmount());
                     return BudgetMapper.toResponse(e, categoryExceeded, budgetExceeded);
                 })
                 .collect(Collectors.toList());
@@ -305,13 +320,7 @@ public class BudgetService {
         requireBudgetManager(projectId, userId);
 
         if (request.getStageId() != null) {
-            Stage stage = stageRepository.findById(request.getStageId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stage not found"));
-            if (!stage.getConstructionProject().getId().equals(projectId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Stage does not belong to this project");
-            }
-            expense.setStage(stage);
+            expense.setStage(resolveStage(request.getStageId(), projectId));
         }
         if (request.getDescription() != null && !request.getDescription().isBlank()) {
             expense.setDescription(request.getDescription());
@@ -332,8 +341,8 @@ public class BudgetService {
         Expense saved = expenseRepository.save(expense);
         BigDecimal categorySpent = expenseRepository.sumAmountByBudgetItemId(item.getId());
         BigDecimal budgetSpent = expenseRepository.sumAmountByProjectBudgetId(budget.getId());
-        boolean categoryExceeded = categorySpent.compareTo(item.getPlannedAmount()) > 0;
-        boolean budgetExceeded = budgetSpent.compareTo(budget.getPlannedTotal()) > 0;
+        boolean categoryExceeded = isExceeded(categorySpent, item.getPlannedAmount());
+        boolean budgetExceeded = isExceeded(budgetSpent, budget.getPlannedTotal());
 
         touchBudget(budget);
         return BudgetMapper.toResponse(saved, categoryExceeded, budgetExceeded);
@@ -349,8 +358,9 @@ public class BudgetService {
     }
 
     private void touchBudget(ProjectBudget budget) {
+        // A entidade já é gerenciada dentro da transação; o dirty checking do JPA
+        // persiste a alteração no commit, dispensando um save() explícito.
         budget.setUpdatedAt(Instant.now());
-        budgetRepository.save(budget);
     }
 
     private ProjectBudgetResponse buildBudgetResponse(ProjectBudget budget) {
