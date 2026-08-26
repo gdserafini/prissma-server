@@ -536,7 +536,13 @@ public class StageControllerTest {
                         .with(auth(ownerUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reorderedIds)))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Stages reordered successfully"))
+                .andExpect(jsonPath("$.stages.length()").value(2))
+                .andExpect(jsonPath("$.stages[0].id").value(stage2.getId()))
+                .andExpect(jsonPath("$.stages[0].displayOrder").value(1))
+                .andExpect(jsonPath("$.stages[1].id").value(stage1.getId()))
+                .andExpect(jsonPath("$.stages[1].displayOrder").value(2));
 
         // Verify order changed
         mockMvc.perform(get("/stages/" + stage2.getId())

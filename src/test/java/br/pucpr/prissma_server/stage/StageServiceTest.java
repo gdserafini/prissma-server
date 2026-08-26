@@ -530,34 +530,61 @@ public class StageServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
         when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(stageRepository.findById(2L)).thenReturn(Optional.of(stage2));
-        when(stageRepository.findById(1L)).thenReturn(Optional.of(stage1));
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of(stage1, stage2));
 
         service.reorder(1L, reorderedIds, 1L);
 
-        ArgumentCaptor<Stage> stageCaptor = ArgumentCaptor.forClass(Stage.class);
-        verify(stageRepository, times(2)).save(stageCaptor.capture());
+        assertEquals(1, stage2.getDisplayOrder());
+        assertEquals(2, stage1.getDisplayOrder());
+    }
 
-        List<Stage> savedStages = stageCaptor.getAllValues();
-        assertEquals(1, savedStages.get(0).getDisplayOrder());
-        assertEquals(2, savedStages.get(1).getDisplayOrder());
+    @Test
+    @DisplayName("Should move stages through a temporary range before writing final order")
+    void testReorderAvoidsTransientDuplicateOrder() {
+        Stage stage1 = new Stage();
+        stage1.setId(1L);
+        stage1.setDisplayOrder(1);
+        stage1.setConstructionProject(project);
+
+        Stage stage2 = new Stage();
+        stage2.setId(2L);
+        stage2.setDisplayOrder(2);
+        stage2.setConstructionProject(project);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
+        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of(stage1, stage2));
+
+        // Nenhuma etapa pode ser gravada numa posicao ja ocupada por outra que ainda nao
+        // foi regravada -- e isso que estourava a unique constraint no Postgres.
+        List<Integer> ordersAtSave = new ArrayList<>();
+        when(stageRepository.save(any(Stage.class))).thenAnswer(invocation -> {
+            Stage saved = invocation.getArgument(0);
+            ordersAtSave.add(saved.getDisplayOrder());
+            return saved;
+        });
+
+        service.reorder(1L, List.of(2L, 1L), 1L);
+
+        // fase 1: faixa temporaria (3, 4); fase 2: ordem final (1, 2)
+        assertEquals(List.of(3, 4, 1, 2), ordersAtSave);
+        verify(stageRepository, times(2)).flush();
     }
 
     @Test
     @DisplayName("Should reject reorder when stage not in project")
     void testReorderStageNotInProject() {
-        Stage stage1 = new Stage();
-        stage1.setId(1L);
-        ConstructionProject otherProject = new ConstructionProject();
-        otherProject.setId(2L);
-        stage1.setConstructionProject(otherProject);
-
         List<Long> reorderedIds = List.of(1L);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
         when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(stageRepository.findById(1L)).thenReturn(Optional.of(stage1));
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of());
+        when(stageRepository.existsById(1L)).thenReturn(true);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.reorder(1L, reorderedIds, 1L));
@@ -573,12 +600,59 @@ public class StageServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
         when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(stageRepository.findById(99L)).thenReturn(Optional.empty());
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of());
+        when(stageRepository.existsById(99L)).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.reorder(1L, reorderedIds, 1L));
 
         assertReasonContains(exception, "Stage not found");
+    }
+
+    @Test
+    @DisplayName("Should reject reorder with duplicate stage ids")
+    void testReorderDuplicateIds() {
+        Stage stage1 = new Stage();
+        stage1.setId(1L);
+        stage1.setDisplayOrder(1);
+        stage1.setConstructionProject(project);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
+        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of(stage1));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.reorder(1L, List.of(1L, 1L), 1L));
+
+        assertReasonContains(exception, "duplicate stage ids");
+    }
+
+    @Test
+    @DisplayName("Should reject reorder that omits stages of the project")
+    void testReorderPartialList() {
+        Stage stage1 = new Stage();
+        stage1.setId(1L);
+        stage1.setDisplayOrder(1);
+        stage1.setConstructionProject(project);
+
+        Stage stage2 = new Stage();
+        stage2.setId(2L);
+        stage2.setDisplayOrder(2);
+        stage2.setConstructionProject(project);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
+        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
+                .thenReturn(List.of(stage1, stage2));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> service.reorder(1L, List.of(2L), 1L));
+
+        assertReasonContains(exception, "must contain all stages of the project");
     }
 
     // ============= MAPPER TESTS =============

@@ -71,13 +71,14 @@ public class StageController {
     }
 
     @PostMapping("/projects/{projectId}/stages/reorder")
-    public ResponseEntity<Void> reorder(
+    public ResponseEntity<StageReorderResponse> reorder(
             @PathVariable Long projectId,
             @RequestBody List<Long> stageIds,
             Authentication auth) {
         Long userId = resolveUserId(auth);
         service.reorder(projectId, stageIds, userId);
-        return ResponseEntity.noContent().build();
+        List<StageResponse> stages = service.listByProject(projectId);
+        return ResponseEntity.ok(new StageReorderResponse("Stages reordered successfully", stages));
     }
 }
 
