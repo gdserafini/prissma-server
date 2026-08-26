@@ -11,7 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -157,25 +159,54 @@ public class StageService {
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
-        for (int i = 0; i < stageIds.size(); i++) {
-            Long stageId = stageIds.get(i);
-            Stage stage = stageRepository.findById(stageId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Stage not found: " + stageId));
+        List<Stage> stages = stageRepository.findByConstructionProjectIdOrderByDisplayOrder(projectId);
+        Map<Long, Stage> stagesById = stages.stream()
+                .collect(Collectors.toMap(Stage::getId, stage -> stage));
 
-            if (!stage.getConstructionProject().getId().equals(projectId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Stage does not belong to this project");
+        if (new HashSet<>(stageIds).size() != stageIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Reorder request contains duplicate stage ids");
+        }
+
+        for (Long stageId : stageIds) {
+            if (!stagesById.containsKey(stageId)) {
+                if (stageRepository.existsById(stageId)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Stage does not belong to this project");
+                }
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Stage not found: " + stageId);
             }
+        }
 
-            stage.setDisplayOrder(i + 1);
-            stage.setUpdatedAt(Instant.now());
+        if (stageIds.size() != stages.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Reorder request must contain all stages of the project");
+        }
+
+        // A constraint UNIQUE (construction_project_id, display_order) e validada a cada
+        // UPDATE, entao gravar a ordem final direto estoura no meio do caminho, enquanto
+        // duas etapas ainda dividem a mesma posicao. Primeiro move-se todas para uma faixa
+        // temporaria acima do maior display_order atual (positiva, por causa do
+        // CHECK display_order > 0) e so depois grava-se 1..N. Em nenhuma das duas fases um
+        // valor de destino colide com um valor ainda nao regravado, entao a ordem em que o
+        // Hibernate emite os UPDATEs nao importa.
+        int tempOffset = stages.stream().mapToInt(Stage::getDisplayOrder).max().orElse(0) + 1;
+        Instant now = Instant.now();
+
+        for (int i = 0; i < stageIds.size(); i++) {
+            Stage stage = stagesById.get(stageIds.get(i));
+            stage.setDisplayOrder(tempOffset + i);
+            stage.setUpdatedAt(now);
             stageRepository.save(stage);
         }
+        stageRepository.flush();
+
+        for (int i = 0; i < stageIds.size(); i++) {
+            Stage stage = stagesById.get(stageIds.get(i));
+            stage.setDisplayOrder(i + 1);
+            stageRepository.save(stage);
+        }
+        stageRepository.flush();
     }
 }
-
-
-
-
-
