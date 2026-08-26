@@ -54,10 +54,15 @@ public class BudgetService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    private void requireProjectAccess(Long projectId, Long userId) {
+    /**
+     * Garante que o usuário pode acessar o projeto e retorna o vínculo (membership)
+     * correspondente. Retorna {@code null} quando o usuário é ADMIN, pois o ADMIN
+     * ignora as regras de vínculo/cargo do projeto.
+     */
+    private ConstructionProjectMember requireActiveMember(Long projectId, Long userId) {
         User user = requireUser(userId);
         if (user.getRole() == Role.ADMIN) {
-            return;
+            return null;
         }
         ConstructionProjectMember member = memberRepository
                 .findByConstructionProjectIdAndUserId(projectId, userId)
@@ -67,20 +72,17 @@ public class BudgetService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "User is not an active member of this project");
         }
+        return member;
+    }
+
+    private void requireProjectAccess(Long projectId, Long userId) {
+        requireActiveMember(projectId, userId);
     }
 
     private void requireBudgetManager(Long projectId, Long userId) {
-        User user = requireUser(userId);
-        if (user.getRole() == Role.ADMIN) {
+        ConstructionProjectMember member = requireActiveMember(projectId, userId);
+        if (member == null) {
             return;
-        }
-        ConstructionProjectMember member = memberRepository
-                .findByConstructionProjectIdAndUserId(projectId, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-        if (!"ACTIVE".equals(member.getMembershipStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not an active member of this project");
         }
         if (!MANAGER_ROLES.contains(member.getRoleInProject())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
