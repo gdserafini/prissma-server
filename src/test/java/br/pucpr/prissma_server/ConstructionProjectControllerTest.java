@@ -160,7 +160,7 @@ public class ConstructionProjectControllerTest {
             idField.set(p, 5L);
         } catch (NoSuchFieldException | IllegalAccessException ignored) {
         }
-        when(service.getById(5L)).thenReturn(p);
+        when(service.getById(5L, 1L)).thenReturn(p);
 
         mockMvc.perform(get("/projects/5")
                         .principal(auth(1L)))
@@ -181,7 +181,7 @@ public class ConstructionProjectControllerTest {
         updated.setStreet("Av. Atualizada");
         updated.setStatus("IN_PROGRESS");
 
-        when(service.updateProject(any(Long.class), any())).thenReturn(updated);
+        when(service.updateProject(any(Long.class), any(), any(Long.class))).thenReturn(updated);
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("street", "Av. Atualizada");

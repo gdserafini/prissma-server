@@ -4,7 +4,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 public enum ProjectPermission {
-    VIEW_PROJECT,       
+    VIEW_PROJECT,
+    MANAGE_PROJECT,
     MANAGE_MEMBERS,      
     MANAGE_BUDGET,       
     MANAGE_STAGES,      

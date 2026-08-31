@@ -1,9 +1,9 @@
 package br.pucpr.prissma_server.stage;
 
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
-import br.pucpr.prissma_server.users.UserRepository;
+import br.pucpr.prissma_server.projects.ProjectPermission;
+import br.pucpr.prissma_server.projects.ProjectPermissionService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,17 +21,14 @@ public class StageService {
 
     private final StageRepository stageRepository;
     private final ConstructionProjectRepository projectRepository;
-    private final ConstructionProjectMemberRepository memberRepository;
-    private final UserRepository userRepository;
+    private final ProjectPermissionService permissionService;
 
     public StageService(StageRepository stageRepository,
                        ConstructionProjectRepository projectRepository,
-                       ConstructionProjectMemberRepository memberRepository,
-                       UserRepository userRepository) {
+                       ProjectPermissionService permissionService) {
         this.stageRepository = stageRepository;
         this.projectRepository = projectRepository;
-        this.memberRepository = memberRepository;
-        this.userRepository = userRepository;
+        this.permissionService = permissionService;
     }
 
     private void validateDates(StageRequest request) {
@@ -49,24 +46,23 @@ public class StageService {
         }
     }
 
+    /**
+     * Autorizacao de etapa.
+     *
+     * Delega ao ProjectPermissionService, que e o unico lugar que sabe compor
+     * ADMIN global, membership ativa e as permissoes customizadas por obra
+     * (project_role_permissions). A versao anterior checava o papel na mao
+     * (OWNER/ENGINEER), o que ignorava a customizacao por obra, deixava membro
+     * INACTIVE gerenciar etapas e carregava a tabela inteira de membros em
+     * memoria a cada chamada.
+     */
     private void validateAuthorization(Long userId, Long projectId) {
-        userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        permissionService.requirePermission(projectId, userId, ProjectPermission.MANAGE_STAGES);
+    }
 
-        var memberOpt = memberRepository.findAll().stream()
-                .filter(m -> m.getConstructionProject().getId().equals(projectId) && m.getUser().getId().equals(userId))
-                .findFirst();
-
-        if (memberOpt.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not a member of this project");
-        }
-
-        String roleInProject = memberOpt.get().getRoleInProject();
-        if (!roleInProject.equals("OWNER") && !roleInProject.equals("ENGINEER")) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Only OWNER or ENGINEER can manage stages");
-        }
+    /** Leitura: basta ser membro ativo com VIEW_PROJECT (ou ADMIN global). */
+    private void requireVisibility(Long projectId, Long userId) {
+        permissionService.requirePermission(projectId, userId, ProjectPermission.VIEW_PROJECT);
     }
 
     @Transactional
@@ -98,9 +94,11 @@ public class StageService {
         }
     }
 
-    public List<StageResponse> listByProject(Long projectId) {
+    public List<StageResponse> listByProject(Long projectId, Long userId) {
         projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
+        requireVisibility(projectId, userId);
 
         return stageRepository.findByConstructionProjectIdOrderByDisplayOrder(projectId)
                 .stream()
@@ -108,9 +106,10 @@ public class StageService {
                 .collect(Collectors.toList());
     }
 
-    public StageResponse get(Long id) {
+    public StageResponse get(Long id, Long userId) {
         Stage stage = stageRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Stage not found"));
+        requireVisibility(stage.getConstructionProject().getId(), userId);
         return StageMapper.toResponse(stage);
     }
 
