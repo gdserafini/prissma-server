@@ -235,13 +235,24 @@ public class ConstructionProjectService {
         return memberRepository.findAllProjectsByUserId(userId);
     }
 
-    public ConstructionProject getById(Long id) {
+    /**
+     * Carrega a obra sem checar acesso. Uso interno: quem chama ja autorizou.
+     * Toda entrada vinda de controller passa por {@link #getById(Long, Long)}.
+     */
+    private ConstructionProject loadById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
     }
 
-    public ConstructionProject updateProject(Long id, ConstructionProjectRequest request) {
-        ConstructionProject project = getById(id);
+    public ConstructionProject getById(Long id, Long userId) {
+        ConstructionProject project = loadById(id);
+        permissionService.requirePermission(id, userId, ProjectPermission.VIEW_PROJECT);
+        return project;
+    }
+
+    public ConstructionProject updateProject(Long id, ConstructionProjectRequest request, Long userId) {
+        ConstructionProject project = loadById(id);
+        permissionService.requirePermission(id, userId, ProjectPermission.MANAGE_PROJECT);
 
         if (request.title() != null && !request.title().isBlank() && !request.title().equals(project.getTitle())) {
             if (repository.existsByTitle(request.title())) {
@@ -267,10 +278,11 @@ public class ConstructionProjectService {
         return repository.save(project);
     }
 
-    public void deleteProject(Long id) {
+    public void deleteProject(Long id, Long userId) {
         if (!repository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
         }
+        permissionService.requirePermission(id, userId, ProjectPermission.MANAGE_PROJECT);
         repository.deleteById(id);
     }
 }

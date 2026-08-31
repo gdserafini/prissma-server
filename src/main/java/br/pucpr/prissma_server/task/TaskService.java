@@ -3,9 +3,9 @@ package br.pucpr.prissma_server.task;
 import br.pucpr.prissma_server.projects.AcompanhamentoResponse;
 import br.pucpr.prissma_server.projects.AcompanhamentoStageResponse;
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.ConstructionProjectMember;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
+import br.pucpr.prissma_server.projects.ProjectPermission;
+import br.pucpr.prissma_server.projects.ProjectPermissionService;
 import br.pucpr.prissma_server.stage.Stage;
 import br.pucpr.prissma_server.stage.StageRepository;
 import br.pucpr.prissma_server.users.Role;
@@ -35,26 +35,26 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final StageRepository stageRepository;
     private final ConstructionProjectRepository projectRepository;
-    private final ConstructionProjectMemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final ProjectPermissionService permissionService;
 
     public TaskService(TaskRepository taskRepository,
                        StageRepository stageRepository,
                        ConstructionProjectRepository projectRepository,
-                       ConstructionProjectMemberRepository memberRepository,
-                       UserRepository userRepository) {
+                       UserRepository userRepository,
+                       ProjectPermissionService permissionService) {
         this.taskRepository = taskRepository;
         this.stageRepository = stageRepository;
         this.projectRepository = projectRepository;
-        this.memberRepository = memberRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
     }
 
     @Transactional
     public TaskResponse create(Long stageId, TaskRequest request, Long actorUserId) {
         Stage stage = loadStage(stageId);
         User actor = loadUser(actorUserId);
-        requireProjectAccess(stage.getConstructionProject().getId(), actor);
+        requireTaskManagement(stage.getConstructionProject().getId(), actor);
 
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Task request is required");
@@ -114,7 +114,7 @@ public class TaskService {
     public TaskResponse update(Long stageId, Long taskId, TaskRequest request, Long actorUserId) {
         Stage stage = loadStage(stageId);
         User actor = loadUser(actorUserId);
-        requireProjectAccess(stage.getConstructionProject().getId(), actor);
+        requireTaskManagement(stage.getConstructionProject().getId(), actor);
 
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Task request is required");
@@ -156,7 +156,7 @@ public class TaskService {
     public void delete(Long stageId, Long taskId, Long actorUserId) {
         Stage stage = loadStage(stageId);
         User actor = loadUser(actorUserId);
-        requireProjectAccess(stage.getConstructionProject().getId(), actor);
+        requireTaskManagement(stage.getConstructionProject().getId(), actor);
 
         Task task = taskRepository.findByIdAndStageId(taskId, stageId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
@@ -204,17 +204,20 @@ public class TaskService {
         );
     }
 
+    /** Leitura de tarefa: basta VIEW_PROJECT (todo papel de obra tem). */
     private void requireProjectAccess(Long projectId, User actor) {
-        if (actor.getRole() == Role.ADMIN) {
-            return;
-        }
-        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, actor.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-        if (!"ACTIVE".equals(member.getMembershipStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not an active member of this project");
-        }
+        permissionService.requirePermission(projectId, actor.getId(), ProjectPermission.VIEW_PROJECT);
+    }
+
+    /**
+     * Escrita de tarefa: exige MANAGE_TASKS.
+     *
+     * Antes bastava ser membro ativo, o que dava a um cliente (papel USER, cuja
+     * unica permissao e VIEW_PROJECT) o direito de criar, editar e apagar
+     * tarefas da obra que ele apenas acompanha.
+     */
+    private void requireTaskManagement(Long projectId, User actor) {
+        permissionService.requirePermission(projectId, actor.getId(), ProjectPermission.MANAGE_TASKS);
     }
 
     private Stage loadStage(Long stageId) {

@@ -40,14 +40,15 @@ public class StageController {
     }
 
     @GetMapping("/projects/{projectId}/stages")
-    public ResponseEntity<List<StageResponse>> listByProject(@PathVariable Long projectId) {
-        List<StageResponse> stages = service.listByProject(projectId);
+    public ResponseEntity<List<StageResponse>> listByProject(@PathVariable Long projectId,
+                                                             Authentication auth) {
+        List<StageResponse> stages = service.listByProject(projectId, resolveUserId(auth));
         return ResponseEntity.ok(stages);
     }
 
     @GetMapping("/stages/{id}")
-    public ResponseEntity<StageResponse> get(@PathVariable Long id) {
-        StageResponse response = service.get(id);
+    public ResponseEntity<StageResponse> get(@PathVariable Long id, Authentication auth) {
+        StageResponse response = service.get(id, resolveUserId(auth));
         return ResponseEntity.ok(response);
     }
 
@@ -77,7 +78,7 @@ public class StageController {
             Authentication auth) {
         Long userId = resolveUserId(auth);
         service.reorder(projectId, stageIds, userId);
-        List<StageResponse> stages = service.listByProject(projectId);
+        List<StageResponse> stages = service.listByProject(projectId, userId);
         return ResponseEntity.ok(new StageReorderResponse("Stages reordered successfully", stages));
     }
 }

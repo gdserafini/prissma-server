@@ -1,14 +1,11 @@
 package br.pucpr.prissma_server.budget;
 
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.ConstructionProjectMember;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
+import br.pucpr.prissma_server.projects.ProjectPermission;
+import br.pucpr.prissma_server.projects.ProjectPermissionService;
 import br.pucpr.prissma_server.stage.Stage;
 import br.pucpr.prissma_server.stage.StageRepository;
-import br.pucpr.prissma_server.users.Role;
-import br.pucpr.prissma_server.users.User;
-import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,41 +14,30 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class BudgetService {
 
-    private static final Set<String> MANAGER_ROLES = Set.of("OWNER", "ENGINEER", "FOREMAN");
-
     private final ProjectBudgetRepository budgetRepository;
     private final BudgetItemRepository itemRepository;
     private final ExpenseRepository expenseRepository;
     private final ConstructionProjectRepository projectRepository;
-    private final ConstructionProjectMemberRepository memberRepository;
     private final StageRepository stageRepository;
-    private final UserRepository userRepository;
+    private final ProjectPermissionService permissionService;
 
     public BudgetService(ProjectBudgetRepository budgetRepository,
                          BudgetItemRepository itemRepository,
                          ExpenseRepository expenseRepository,
                          ConstructionProjectRepository projectRepository,
-                         ConstructionProjectMemberRepository memberRepository,
                          StageRepository stageRepository,
-                         UserRepository userRepository) {
+                         ProjectPermissionService permissionService) {
         this.budgetRepository = budgetRepository;
         this.itemRepository = itemRepository;
         this.expenseRepository = expenseRepository;
         this.projectRepository = projectRepository;
-        this.memberRepository = memberRepository;
         this.stageRepository = stageRepository;
-        this.userRepository = userRepository;
-    }
-
-    private User requireUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        this.permissionService = permissionService;
     }
 
     /**
@@ -59,34 +45,20 @@ public class BudgetService {
      * correspondente. Retorna {@code null} quando o usuário é ADMIN, pois o ADMIN
      * ignora as regras de vínculo/cargo do projeto.
      */
-    private ConstructionProjectMember requireActiveMember(Long projectId, Long userId) {
-        User user = requireUser(userId);
-        if (user.getRole() == Role.ADMIN) {
-            return null;
-        }
-        ConstructionProjectMember member = memberRepository
-                .findByConstructionProjectIdAndUserId(projectId, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-        if (!"ACTIVE".equals(member.getMembershipStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not an active member of this project");
-        }
-        return member;
-    }
-
+    /** Leitura do orcamento: basta VIEW_PROJECT (ou ADMIN global). */
     private void requireProjectAccess(Long projectId, Long userId) {
-        ConstructionProjectMember member = requireActiveMember(projectId, userId);
-        if(member == null) return;
+        permissionService.requirePermission(projectId, userId, ProjectPermission.VIEW_PROJECT);
     }
 
+    /**
+     * Escrita no orcamento: exige MANAGE_BUDGET.
+     *
+     * A versao anterior comparava o papel contra uma lista fixa
+     * (OWNER/ENGINEER/FOREMAN), o que ignorava a customizacao de permissoes por
+     * obra que a propria API expoe em PUT /projects/{id}/roles/{role}/permissions.
+     */
     private void requireBudgetManager(Long projectId, Long userId) {
-        ConstructionProjectMember member = requireActiveMember(projectId, userId);
-        if (member == null) return;
-        if (!MANAGER_ROLES.contains(member.getRoleInProject())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Only OWNER, ENGINEER or FOREMAN can manage the budget");
-        }
+        permissionService.requirePermission(projectId, userId, ProjectPermission.MANAGE_BUDGET);
     }
 
     private ProjectBudget requireBudget(Long budgetId) {

@@ -63,20 +63,24 @@ public class ConstructionProjectController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ConstructionProjectResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ConstructionProjectResponse.from(service.getById(id)));
+    public ResponseEntity<ConstructionProjectResponse> getById(@PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(ConstructionProjectResponse.from(service.getById(id, userId)));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<ConstructionProjectResponse> updateProject(@PathVariable Long id,
-                                                                     @RequestBody ConstructionProjectRequest request) {
-        ConstructionProject updated = service.updateProject(id, request);
+                                                                     @RequestBody ConstructionProjectRequest request,
+                                                                     Authentication auth) {
+        Long userId = resolveUserId(auth);
+        ConstructionProject updated = service.updateProject(id, request, userId);
         return ResponseEntity.ok(ConstructionProjectResponse.from(updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
-        service.deleteProject(id);
+    public ResponseEntity<Void> deleteProject(@PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        service.deleteProject(id, userId);
         return ResponseEntity.noContent().build();
     }
 

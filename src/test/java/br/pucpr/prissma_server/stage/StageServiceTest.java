@@ -1,12 +1,9 @@
 package br.pucpr.prissma_server.stage;
 
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.ConstructionProjectMember;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
-import br.pucpr.prissma_server.users.Role;
-import br.pucpr.prissma_server.users.User;
-import br.pucpr.prissma_server.users.UserRepository;
+import br.pucpr.prissma_server.projects.ProjectPermission;
+import br.pucpr.prissma_server.projects.ProjectPermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -38,21 +36,12 @@ public class StageServiceTest {
     private ConstructionProjectRepository projectRepository;
 
     @Mock
-    private ConstructionProjectMemberRepository memberRepository;
-
-    @Mock
-    private UserRepository userRepository;
+    private ProjectPermissionService permissionService;
 
     @InjectMocks
     private StageService service;
 
-    private User ownerUser;
-    private User engineerUser;
-    private User foremanUser;
     private ConstructionProject project;
-    private ConstructionProjectMember ownerMember;
-    private ConstructionProjectMember engineerMember;
-    private ConstructionProjectMember foremanMember;
     private StageRequest validRequest;
 
     private void assertReasonContains(ResponseStatusException exception, String expectedPart) {
@@ -62,42 +51,9 @@ public class StageServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Setup users
-        ownerUser = new User();
-        ownerUser.setId(1L);
-        ownerUser.setEmail("owner@example.com");
-        ownerUser.setRole(Role.USER);
-
-        engineerUser = new User();
-        engineerUser.setId(2L);
-        engineerUser.setEmail("engineer@example.com");
-        engineerUser.setRole(Role.USER);
-
-        foremanUser = new User();
-        foremanUser.setId(3L);
-        foremanUser.setEmail("foreman@example.com");
-        foremanUser.setRole(Role.USER);
-
-        // Setup project
         project = new ConstructionProject();
         project.setId(1L);
         project.setTitle("Test Project");
-
-        // Setup project members
-        ownerMember = new ConstructionProjectMember();
-        ownerMember.setConstructionProject(project);
-        ownerMember.setUser(ownerUser);
-        ownerMember.setRoleInProject("OWNER");
-
-        engineerMember = new ConstructionProjectMember();
-        engineerMember.setConstructionProject(project);
-        engineerMember.setUser(engineerUser);
-        engineerMember.setRoleInProject("ENGINEER");
-
-        foremanMember = new ConstructionProjectMember();
-        foremanMember.setConstructionProject(project);
-        foremanMember.setUser(foremanUser);
-        foremanMember.setRoleInProject("FOREMAN");
 
         // Setup valid request
         validRequest = new StageRequest(
@@ -116,8 +72,6 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should create stage successfully with OWNER role")
     void testCreateStageSuccessWithOwner() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdAndDisplayOrder(1L, 1)).thenReturn(Optional.empty());
 
@@ -142,8 +96,6 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should create stage successfully with ENGINEER role")
     void testCreateStageSuccessWithEngineer() {
-        when(userRepository.findById(2L)).thenReturn(Optional.of(engineerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(engineerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdAndDisplayOrder(1L, 1)).thenReturn(Optional.empty());
 
@@ -166,20 +118,23 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation with FOREMAN role")
     void testCreateStageUnauthorizedForeman() {
-        when(userRepository.findById(3L)).thenReturn(Optional.of(foremanUser));
-        when(memberRepository.findAll()).thenReturn(List.of(foremanMember));
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have permission to perform this operation: MANAGE_STAGES"))
+                .when(permissionService).requirePermission(1L, 3L, ProjectPermission.MANAGE_STAGES);
+
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, validRequest, 3L));
 
-        assertEquals("Only OWNER or ENGINEER can manage stages", exception.getReason());
+        assertEquals("User does not have permission to perform this operation: MANAGE_STAGES",
+                exception.getReason());
     }
 
     @Test
     @DisplayName("Should reject creation when user not in project")
     void testCreateStageUserNotInProject() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(new ArrayList<>());
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of this project"))
+                .when(permissionService).requirePermission(1L, 1L, ProjectPermission.MANAGE_STAGES);
+
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, validRequest, 1L));
@@ -223,8 +178,6 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation with duplicate displayOrder")
     void testCreateStageDuplicateDisplayOrder() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
 
         Stage existingStage = new Stage();
@@ -241,7 +194,9 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation when user not found")
     void testCreateStageUserNotFound() {
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"))
+                .when(permissionService).requirePermission(1L, 99L, ProjectPermission.MANAGE_STAGES);
+
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.create(1L, validRequest, 99L));
@@ -252,17 +207,6 @@ public class StageServiceTest {
     @Test
     @DisplayName("Should reject creation when project not found")
     void testCreateStageProjectNotFound() {
-        ConstructionProject missingProject = new ConstructionProject();
-        missingProject.setId(99L);
-
-        ConstructionProjectMember missingProjectMember = new ConstructionProjectMember();
-        missingProjectMember.setConstructionProject(missingProject);
-        missingProjectMember.setUser(ownerUser);
-        missingProjectMember.setRoleInProject("OWNER");
-        missingProjectMember.setMembershipStatus("ACTIVE");
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(missingProjectMember));
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
@@ -295,7 +239,7 @@ public class StageServiceTest {
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of(stage1, stage2));
 
-        List<StageResponse> responses = service.listByProject(1L);
+        List<StageResponse> responses = service.listByProject(1L, 1L);
 
         assertEquals(2, responses.size());
         assertEquals("Foundation", responses.get(0).getName());
@@ -309,7 +253,7 @@ public class StageServiceTest {
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(new ArrayList<>());
 
-        List<StageResponse> responses = service.listByProject(1L);
+        List<StageResponse> responses = service.listByProject(1L, 1L);
 
         assertEquals(0, responses.size());
     }
@@ -320,7 +264,7 @@ public class StageServiceTest {
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.listByProject(99L));
+                () -> service.listByProject(99L, 1L));
 
         assertEquals("Project not found", exception.getReason());
     }
@@ -339,7 +283,7 @@ public class StageServiceTest {
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(stage));
 
-        StageResponse response = service.get(1L);
+        StageResponse response = service.get(1L, 1L);
 
         assertNotNull(response);
         assertEquals("Foundation", response.getName());
@@ -352,7 +296,7 @@ public class StageServiceTest {
         when(stageRepository.findById(99L)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> service.get(99L));
+                () -> service.get(99L, 1L));
 
         assertEquals("Stage not found", exception.getReason());
     }
@@ -375,8 +319,6 @@ public class StageServiceTest {
         );
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(existingStage));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
 
         Stage updatedStage = new Stage();
         updatedStage.setId(1L);
@@ -410,8 +352,6 @@ public class StageServiceTest {
         );
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(existingStage));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(stageRepository.findByConstructionProjectIdAndDisplayOrder(1L, 2)).thenReturn(Optional.empty());
 
         Stage updatedStage = new Stage();
@@ -455,8 +395,6 @@ public class StageServiceTest {
         );
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(existingStage));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(stageRepository.findByConstructionProjectIdAndDisplayOrder(1L, 2))
                 .thenReturn(Optional.of(conflictingStage));
 
@@ -475,8 +413,6 @@ public class StageServiceTest {
         stage.setConstructionProject(project);
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(stage));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
 
         service.delete(1L, 1L);
 
@@ -502,13 +438,14 @@ public class StageServiceTest {
         stage.setConstructionProject(project);
 
         when(stageRepository.findById(1L)).thenReturn(Optional.of(stage));
-        when(userRepository.findById(3L)).thenReturn(Optional.of(foremanUser));
-        when(memberRepository.findAll()).thenReturn(List.of(foremanMember));
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "User does not have permission to perform this operation: MANAGE_STAGES"))
+                .when(permissionService).requirePermission(1L, 3L, ProjectPermission.MANAGE_STAGES);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.delete(1L, 3L));
 
-        assertReasonContains(exception, "Only OWNER or ENGINEER");
+        assertReasonContains(exception, "MANAGE_STAGES");
     }
 
     // ============= REORDER TESTS =============
@@ -527,8 +464,6 @@ public class StageServiceTest {
 
         List<Long> reorderedIds = List.of(2L, 1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of(stage1, stage2));
@@ -552,8 +487,6 @@ public class StageServiceTest {
         stage2.setDisplayOrder(2);
         stage2.setConstructionProject(project);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of(stage1, stage2));
@@ -579,8 +512,6 @@ public class StageServiceTest {
     void testReorderStageNotInProject() {
         List<Long> reorderedIds = List.of(1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of());
@@ -597,8 +528,6 @@ public class StageServiceTest {
     void testReorderStageNotFound() {
         List<Long> reorderedIds = List.of(99L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of());
@@ -618,8 +547,6 @@ public class StageServiceTest {
         stage1.setDisplayOrder(1);
         stage1.setConstructionProject(project);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of(stage1));
@@ -643,8 +570,6 @@ public class StageServiceTest {
         stage2.setDisplayOrder(2);
         stage2.setConstructionProject(project);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findAll()).thenReturn(List.of(ownerMember));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(stageRepository.findByConstructionProjectIdOrderByDisplayOrder(1L))
                 .thenReturn(List.of(stage1, stage2));

@@ -4,12 +4,11 @@ import br.pucpr.prissma_server.attachments.storage.FileStorageService;
 import br.pucpr.prissma_server.attachments.storage.StorageProperties;
 import br.pucpr.prissma_server.attachments.storage.StoredFile;
 import br.pucpr.prissma_server.projects.ConstructionProject;
-import br.pucpr.prissma_server.projects.ConstructionProjectMember;
-import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
+import br.pucpr.prissma_server.projects.ProjectPermission;
+import br.pucpr.prissma_server.projects.ProjectPermissionService;
 import br.pucpr.prissma_server.stage.Stage;
 import br.pucpr.prissma_server.task.Task;
-import br.pucpr.prissma_server.users.Role;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
 import jakarta.persistence.EntityManager;
@@ -24,12 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 
 @Service
 public class AttachmentService {
-
-    private static final Set<String> UPLOAD_ROLES = Set.of("OWNER", "ENG", "ARQ", "MASTER");
 
     private static final String DOCX_CONTENT_TYPE =
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -48,7 +44,7 @@ public class AttachmentService {
 
     private final AttachmentRepository repository;
     private final ConstructionProjectRepository projectRepository;
-    private final ConstructionProjectMemberRepository memberRepository;
+    private final ProjectPermissionService permissionService;
     private final UserRepository userRepository;
     private final FileStorageService storage;
     private final StorageProperties storageProperties;
@@ -56,14 +52,14 @@ public class AttachmentService {
 
     public AttachmentService(AttachmentRepository repository,
                              ConstructionProjectRepository projectRepository,
-                             ConstructionProjectMemberRepository memberRepository,
+                             ProjectPermissionService permissionService,
                              UserRepository userRepository,
                              FileStorageService storage,
                              StorageProperties storageProperties,
                              EntityManager entityManager) {
         this.repository = repository;
         this.projectRepository = projectRepository;
-        this.memberRepository = memberRepository;
+        this.permissionService = permissionService;
         this.userRepository = userRepository;
         this.storage = storage;
         this.storageProperties = storageProperties;
@@ -180,25 +176,23 @@ public class AttachmentService {
         return attachment;
     }
 
+    /** Leitura/download de anexo: basta VIEW_PROJECT (ou ADMIN global). */
     private void requireProjectAccess(Long projectId, User user) {
-        if (user.getRole() == Role.ADMIN) return;
-        memberRepository.findByConstructionProjectIdAndUserId(projectId, user.getId())
-                .filter(m -> "ACTIVE".equals(m.getMembershipStatus()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
+        permissionService.requirePermission(projectId, user.getId(), ProjectPermission.VIEW_PROJECT);
     }
 
+    /**
+     * Upload e exclusao de anexo: exige MANAGE_ATTACHMENTS.
+     *
+     * A lista fixa anterior era UPLOAD_ROLES = {OWNER, ENG, ARQ, MASTER}, mas
+     * construction_project_members.role_in_project so aceita OWNER, ARCHITECT,
+     * ENGINEER, FOREMAN e USER: "ENG", "ARQ" e "MASTER" sao valores do enum de
+     * papel GLOBAL (users.role) e nunca casavam. Na pratica so o OWNER
+     * conseguia anexar arquivo; engenheiro, arquiteto e mestre de obra levavam
+     * 403 sem motivo aparente.
+     */
     private void requireUploadPermission(Long projectId, User user) {
-        if (user.getRole() == Role.ADMIN) return;
-        ConstructionProjectMember member = memberRepository
-                .findByConstructionProjectIdAndUserId(projectId, user.getId())
-                .filter(m -> "ACTIVE".equals(m.getMembershipStatus()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-        if (!UPLOAD_ROLES.contains(member.getRoleInProject())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User role does not allow uploading attachments");
-        }
+        permissionService.requirePermission(projectId, user.getId(), ProjectPermission.MANAGE_ATTACHMENTS);
     }
 
     private Stage resolveStage(Long stageId, Long projectId) {
