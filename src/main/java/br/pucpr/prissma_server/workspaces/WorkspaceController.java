@@ -7,7 +7,9 @@ import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,13 +24,16 @@ import java.util.List;
 public class WorkspaceController {
 
     private final WorkspaceService service;
+    private final WorkspaceMemberService memberService;
     private final AuthService authService;
     private final UserRepository userRepository;
 
     public WorkspaceController(WorkspaceService service,
+                               WorkspaceMemberService memberService,
                                AuthService authService,
                                UserRepository userRepository) {
         this.service = service;
+        this.memberService = memberService;
         this.authService = authService;
         this.userRepository = userRepository;
     }
@@ -76,5 +81,53 @@ public class WorkspaceController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return ResponseEntity.ok(new LoginResponse(authService.issueToken(user, ctx)));
+    }
+
+    // ---------- membros do workspace ativo ----------
+
+    @GetMapping("/members")
+    public ResponseEntity<List<WorkspaceMemberDtos.WorkspaceMemberResponse>> listMembers() {
+        return ResponseEntity.ok(memberService.listMembers(WorkspaceContext.current()));
+    }
+
+    @PostMapping("/members/invite")
+    public ResponseEntity<WorkspaceMemberDtos.MemberInviteResponse> invite(
+            @RequestBody WorkspaceMemberDtos.InviteMemberRequest request,
+            Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(memberService.invite(WorkspaceContext.current(), userId, request));
+    }
+
+    /** PÚBLICO (permitAll no SecurityConfig): o convidado ainda não tem conta. */
+    @PatchMapping("/invites/{token}/accept")
+    public ResponseEntity<Void> acceptInvite(@PathVariable String token,
+                                             @RequestBody(required = false) WorkspaceMemberDtos.AcceptInviteRequest request) {
+        memberService.acceptInvite(token, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/members/{id}")
+    public ResponseEntity<WorkspaceMemberDtos.WorkspaceMemberResponse> updateMemberRole(
+            @PathVariable Long id,
+            @RequestBody WorkspaceMemberDtos.UpdateWorkspaceMemberRequest request,
+            Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(memberService.updateMemberRole(WorkspaceContext.current(), userId, id,
+                request == null ? null : request.role()));
+    }
+
+    @PatchMapping("/members/{id}/deactivate")
+    public ResponseEntity<WorkspaceMemberDtos.WorkspaceMemberResponse> deactivateMember(
+            @PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        return ResponseEntity.ok(memberService.deactivateMember(WorkspaceContext.current(), userId, id));
+    }
+
+    @DeleteMapping("/members/{id}")
+    public ResponseEntity<Void> removeMember(@PathVariable Long id, Authentication auth) {
+        Long userId = resolveUserId(auth);
+        memberService.removeMember(WorkspaceContext.current(), userId, id);
+        return ResponseEntity.noContent().build();
     }
 }
