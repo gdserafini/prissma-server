@@ -62,6 +62,14 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @MockitoBean
     private TaskService taskService;
 
+    // ConstructionProjectService (importado real via @Import) exige 5 colaboradores;
+    // sem estes dois mocks o contexto do slice nem sobe (NoSuchBeanDefinitionException).
+    @MockitoBean
+    private br.pucpr.prissma_server.projects.ProjectPermissionService permissionService;
+
+    @MockitoBean
+    private br.pucpr.prissma_server.task.TaskRepository taskRepository;
+
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle("Obra de Teste");
@@ -343,6 +351,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
                 .andExpect(jsonPath("$[1].roleInProject").value("ENGINEER"));
     }
 
+    @Test
+    @DisplayName("DELETE /projects/{id} -> 204 when deleted")
     void deleteProject_success() throws Exception {
         when(repository.existsById(33L)).thenReturn(true);
         doNothing().when(repository).deleteById(33L);

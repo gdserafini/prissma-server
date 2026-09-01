@@ -1,5 +1,6 @@
 package br.pucpr.prissma_server.stage;
 
+import br.pucpr.prissma_server.TestcontainersConfig;
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectMember;
 import br.pucpr.prissma_server.projects.ConstructionProjectMemberRepository;
@@ -34,6 +35,7 @@ import static org.hamcrest.Matchers.*;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@org.springframework.context.annotation.Import(TestcontainersConfig.class)
 @DisplayName("StageController Integration Tests")
 public class StageControllerTest {
 

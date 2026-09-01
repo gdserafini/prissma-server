@@ -6,11 +6,9 @@ security:
     frontend-url: http://localhost:3000
 
 spring:
-  datasource:
-    url: jdbc:h2:mem:prissma_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  # Datasource vem do Testcontainers (@ServiceConnection em TestcontainersConfig):
+  # um Postgres 17 real por suíte, com as migrations Flyway reais — o H2 foi
+  # removido porque nunca conseguiu rodá-las (V2 falha em TIMESTAMPTZ).
   jpa:
     hibernate:
       ddl-auto: validate
