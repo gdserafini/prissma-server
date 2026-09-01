@@ -70,6 +70,12 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @MockitoBean
     private br.pucpr.prissma_server.task.TaskRepository taskRepository;
 
+    // O WorkspaceContextFilter é um bean de Filter e entra no slice web mesmo
+    // com addFilters=false (ele é construído, só não aplicado) — precisa do
+    // WorkspaceService satisfeito.
+    @MockitoBean
+    private br.pucpr.prissma_server.workspaces.WorkspaceService workspaceService;
+
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle("Obra de Teste");

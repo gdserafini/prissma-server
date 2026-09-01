@@ -29,6 +29,11 @@ class UserControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    // O WorkspaceContextFilter (bean de Filter) entra no slice web mesmo com
+    // addFilters=false — o mock satisfaz a construção dele.
+    @MockitoBean
+    private br.pucpr.prissma_server.workspaces.WorkspaceService workspaceService;
+
     @MockitoBean
     private UserService service;
 
