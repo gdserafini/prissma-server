@@ -35,10 +35,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Teste de isolamento por recurso: o usuário B (autenticado, mas NÃO membro)
  * tenta alcançar cada recurso da obra do usuário A e é barrado em todos.
  *
- * Hoje a negação é 403 (não-membro). Quando o workspace_id entrar (Fase 2 do
- * plano de Workspaces), o não-pertencimento cross-workspace passa a ser 404
- * genérico (anti-enumeração) — este arquivo é o lugar onde essas asserções
- * são flipadas, e é o teste que pega cada regressão de escopo de tenant.
+ * Com o escopo de workspace ativo, o não-pertencimento cross-workspace é
+ * SEMPRE 404 genérico — nunca 403, para não revelar a existência de obras de
+ * outras construtoras (anti-enumeração). Este é o teste que pega cada
+ * regressão de escopo de tenant.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -62,6 +62,9 @@ public class ResourceIsolationTest {
 
     @Autowired
     private StageRepository stageRepository;
+
+    @Autowired
+    private br.pucpr.prissma_server.workspaces.WorkspaceRepository workspaceRepository;
 
     private User owner;
     private User outsider;
@@ -89,7 +92,17 @@ public class ResourceIsolationTest {
         outsider.setRole(Role.USER);
         outsider = userRepository.save(outsider);
 
+        br.pucpr.prissma_server.workspaces.Workspace workspace =
+                new br.pucpr.prissma_server.workspaces.Workspace();
+        workspace.setOwnerId(owner.getId());
+        workspace.setName("Workspace A");
+        workspace.setPrimary(true);
+        workspace.setCreatedAt(Instant.now());
+        workspace.setUpdatedAt(Instant.now());
+        workspace = workspaceRepository.save(workspace);
+
         project = new ConstructionProject();
+        project.setWorkspaceId(workspace.getId());
         project.setTitle("Obra Isolada " + System.nanoTime());
         project.setStreet("Rua A");
         project.setNumber("1");
@@ -133,7 +146,7 @@ public class ResourceIsolationTest {
     @DisplayName("GET /projects/{id} is denied to a non-member")
     void getProjectDenied() throws Exception {
         mockMvc.perform(get("/projects/" + project.getId()).with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -143,56 +156,86 @@ public class ResourceIsolationTest {
                         .with(auth(outsider))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"IN_PROGRESS\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("DELETE /projects/{id} is denied to a non-member")
     void deleteProjectDenied() throws Exception {
         mockMvc.perform(delete("/projects/" + project.getId()).with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /projects/{id}/members is denied to a non-member")
     void getMembersDenied() throws Exception {
         mockMvc.perform(get("/projects/" + project.getId() + "/members").with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /projects/{id}/stages is denied to a non-member")
     void listStagesDenied() throws Exception {
         mockMvc.perform(get("/projects/" + project.getId() + "/stages").with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /stages/{id} is denied to a non-member")
     void getStageDenied() throws Exception {
         mockMvc.perform(get("/stages/" + stage.getId()).with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /stages/{stageId}/tasks is denied to a non-member")
     void listTasksDenied() throws Exception {
         mockMvc.perform(get("/stages/" + stage.getId() + "/tasks").with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /projects/{id}/budget is denied to a non-member (before the budget lookup)")
     void getBudgetDenied() throws Exception {
         mockMvc.perform(get("/projects/" + project.getId() + "/budget").with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("GET /projects/{id}/attachments is denied to a non-member")
     void listAttachmentsDenied() throws Exception {
         mockMvc.perform(get("/projects/" + project.getId() + "/attachments").with(auth(outsider)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Cross-workspace: outsider WITH their own workspace still gets 404")
+    void crossWorkspaceOutsiderWithOwnWorkspaceGets404() throws Exception {
+        // O caso forte: B tem construtora própria (contexto válido) e mesmo
+        // assim a obra de A não existe para ele — 404 genérico, nunca 403.
+        var workspaceB = new br.pucpr.prissma_server.workspaces.Workspace();
+        workspaceB.setOwnerId(outsider.getId());
+        workspaceB.setName("Workspace B");
+        workspaceB.setPrimary(true);
+        workspaceB.setCreatedAt(Instant.now());
+        workspaceB.setUpdatedAt(Instant.now());
+        workspaceRepository.save(workspaceB);
+
+        mockMvc.perform(get("/projects/" + project.getId()).with(auth(outsider)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/projects/" + project.getId() + "/stages").with(auth(outsider)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Stale X-Workspace-Id header (someone else's workspace) does not grant access")
+    void staleWorkspaceHeaderDoesNotGrantAccess() throws Exception {
+        // Header apontando para o workspace de A: B não tem acesso a ele, o
+        // filtro descarta o candidato e, sem fallback, responde 404 genérico.
+        mockMvc.perform(get("/projects/" + project.getId())
+                        .header("X-Workspace-Id", project.getWorkspaceId().toString())
+                        .with(auth(outsider)))
+                .andExpect(status().isNotFound());
     }
 
     @Test

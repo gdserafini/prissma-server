@@ -217,8 +217,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("OWNER can list project members")
     void getMembers_asOwner_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(1L))
                 .thenReturn(List.of(ownerMember, engineerMember, targetMember));
 
@@ -234,7 +232,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("ADMIN can list project members")
     void getMembers_asAdmin_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(99L)).thenReturn(Optional.of(adminUser));
         when(memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(1L))
                 .thenReturn(List.of(ownerMember, engineerMember));
 
@@ -254,8 +251,8 @@ class ConstructionProjectServiceTest {
         outsider.setRole(Role.USER);
 
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(30L)).thenReturn(Optional.of(outsider));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 30L)).thenReturn(Optional.empty());
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of this project"))
+                .when(permissionService).requirePermission(1L, 30L, ProjectPermission.VIEW_PROJECT);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.getMembers(1L, 30L));

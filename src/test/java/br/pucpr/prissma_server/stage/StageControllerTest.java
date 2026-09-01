@@ -57,6 +57,12 @@ public class StageControllerTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private br.pucpr.prissma_server.workspaces.WorkspaceRepository workspaceRepository;
+
+    @Autowired
+    private br.pucpr.prissma_server.workspaces.WorkspaceMemberRepository workspaceMemberRepository;
+
     private User ownerUser;
     private User engineerUser;
     private User foremanUser;
@@ -65,6 +71,17 @@ public class StageControllerTest {
     private org.springframework.test.web.servlet.request.RequestPostProcessor auth(User user) {
         return authentication(new UsernamePasswordAuthenticationToken(
                 user.getId(), null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))));
+    }
+
+    private void addWorkspaceMember(br.pucpr.prissma_server.workspaces.Workspace workspace, User user) {
+        var member = new br.pucpr.prissma_server.workspaces.WorkspaceMember();
+        member.setWorkspace(workspace);
+        member.setUserId(user.getId());
+        member.setRole(br.pucpr.prissma_server.workspaces.WorkspaceRole.MEMBER);
+        member.setAcceptedAt(Instant.now());
+        member.setCreatedAt(Instant.now());
+        member.setUpdatedAt(Instant.now());
+        workspaceMemberRepository.save(member);
     }
 
     @BeforeEach
@@ -91,8 +108,24 @@ public class StageControllerTest {
         foremanUser.setRole(Role.USER);
         foremanUser = userRepository.save(foremanUser);
 
+        // Create workspace (toda obra pertence a um tenant desde a V14)
+        br.pucpr.prissma_server.workspaces.Workspace workspace =
+                new br.pucpr.prissma_server.workspaces.Workspace();
+        workspace.setOwnerId(ownerUser.getId());
+        workspace.setName("Workspace de Teste");
+        workspace.setPrimary(true);
+        workspace.setCreatedAt(Instant.now());
+        workspace.setUpdatedAt(Instant.now());
+        workspace = workspaceRepository.save(workspace);
+
+        // engineer e foreman precisam de vínculo com o workspace (o
+        // WorkspaceContextFilter resolve o contexto pela membership)
+        addWorkspaceMember(workspace, engineerUser);
+        addWorkspaceMember(workspace, foremanUser);
+
         // Create project
         project = new ConstructionProject();
+        project.setWorkspaceId(workspace.getId());
         project.setTitle("Test Construction Project " + System.nanoTime());
         project.setStreet("Main Street");
         project.setNumber("100");
@@ -283,18 +316,20 @@ public class StageControllerTest {
     }
 
     @Test
-    @DisplayName("Should reject creation for non-existent project")
+    @DisplayName("Should reject creation for non-existent project with 404")
     void testCreateStageProjectNotFound() throws Exception {
         StageRequest request = new StageRequest(
                 "Foundation", "desc", 1, "PLANNED",
                 null, null, null, null
         );
 
+        // Antes do escopo de workspace isto era 403 (o requirePermission não
+        // validava a existência da obra); agora id fantasma é 404 genérico.
         mockMvc.perform(post("/projects/99999/stages")
                         .with(auth(ownerUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     // ============= LIST TESTS =============
@@ -587,6 +622,6 @@ public class StageControllerTest {
                         .with(auth(ownerUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(reorderedIds)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 }

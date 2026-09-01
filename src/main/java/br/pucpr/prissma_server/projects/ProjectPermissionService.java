@@ -41,12 +41,32 @@ public class ProjectPermissionService {
         return permissions;
     }
 
+    /**
+     * Ponto único de decisão, agora com escopo de tenant:
+     *   1. obra inexistente -> 404 (corrige o antigo 403 para id fantasma)
+     *   2. Role.ADMIN global = staff da plataforma -> bypass (documentado, D7)
+     *   3. obra fora do workspace ativo -> 404 GENÉRICO, nunca 403 — não
+     *      revelar a existência de obras de outras construtoras
+     *   4. OWNER/ADMIN do workspace -> todas as permissões da obra
+     *   5. senão -> fluxo original: membership da obra + project_role_permissions
+     */
     @Transactional(readOnly = true)
     public Set<ProjectPermission> permissionsForUser(Long projectId, Long userId) {
+        ConstructionProject project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (user.getRole() == Role.ADMIN) {
+            return EnumSet.allOf(ProjectPermission.class);
+        }
+
+        var ctx = br.pucpr.prissma_server.workspaces.WorkspaceContext.current();
+        if (ctx == null || !project.getWorkspaceId().equals(ctx.workspaceId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
+        }
+        if (ctx.isElevated()) {
             return EnumSet.allOf(ProjectPermission.class);
         }
 

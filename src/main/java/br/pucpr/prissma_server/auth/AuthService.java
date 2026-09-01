@@ -2,6 +2,10 @@ package br.pucpr.prissma_server.auth;
 
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserValidator;
+import br.pucpr.prissma_server.workspaces.Workspace;
+import br.pucpr.prissma_server.workspaces.WorkspaceContext;
+import br.pucpr.prissma_server.workspaces.WorkspaceRole;
+import br.pucpr.prissma_server.workspaces.WorkspaceService;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserValidator userValidator;
     private final ApplicationEventPublisher eventPublisher;
+    private final WorkspaceService workspaceService;
     private final Algorithm algorithm;
     private final long expiration;
     private final String frontendUrl;
@@ -35,6 +40,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             UserValidator userValidator,
             ApplicationEventPublisher eventPublisher,
+            WorkspaceService workspaceService,
             @Value("${security.jwt.secret}") String secret,
             @Value("${security.jwt.expiration}") long expiration,
             @Value("${security.password-reset.frontend-url}") String frontendUrl
@@ -44,6 +50,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.userValidator = userValidator;
         this.eventPublisher = eventPublisher;
+        this.workspaceService = workspaceService;
         this.algorithm = Algorithm.HMAC256(secret);
         this.expiration = expiration;
         this.frontendUrl = frontendUrl;
@@ -57,15 +64,31 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        String token = JWT.create()
+        // Workspace do token: primário (criado no login se for a 1ª vez) ->
+        // primeira membership ativa. Membro puro sem nada: claims omitidos —
+        // o fallback server-side do WorkspaceContextFilter cobre as requests.
+        Workspace primary = workspaceService.ensurePrimaryWorkspace(user.getId());
+        WorkspaceContext ctx = primary != null
+                ? new WorkspaceContext(primary.getId(), WorkspaceRole.OWNER, true)
+                : workspaceService.resolveFallbackContext(user.getId()).orElse(null);
+
+        return new LoginResponse(issueToken(user, ctx));
+    }
+
+    /** Emite o JWT com os claims de workspace. Reutilizado pelo switch de conta. */
+    public String issueToken(User user, WorkspaceContext ctx) {
+        var builder = JWT.create()
                 .withSubject(user.getId().toString())
                 .withClaim("email", user.getEmail())
                 .withClaim("role", user.getRole().name())
                 .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
-                .sign(algorithm);
-
-        return new LoginResponse(token);
+                .withExpiresAt(new Date(System.currentTimeMillis() + expiration));
+        if (ctx != null) {
+            builder.withClaim("workspaceId", ctx.workspaceId())
+                    .withClaim("workspaceRole", ctx.role().name())
+                    .withClaim("isOwner", ctx.owner());
+        }
+        return builder.sign(algorithm);
     }
 
     @Transactional

@@ -2,6 +2,7 @@ package br.pucpr.prissma_server.projects;
 
 import br.pucpr.prissma_server.task.TaskRepository;
 import br.pucpr.prissma_server.users.User;
+import br.pucpr.prissma_server.workspaces.WorkspaceContext;
 import br.pucpr.prissma_server.users.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,24 +41,6 @@ public class ConstructionProjectService {
         }
     }
 
-    private void requireProjectAccess(Long projectId, Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-        if (user.getRole() == br.pucpr.prissma_server.users.Role.ADMIN) {
-            return;
-        }
-
-        ConstructionProjectMember member = memberRepository.findByConstructionProjectIdAndUserId(projectId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "User is not a member of this project"));
-
-        if (!"ACTIVE".equals(member.getMembershipStatus())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "User is not an active member of this project");
-        }
-    }
-
     @Transactional
     public ConstructionProject createProject(ConstructionProject project, Long ownerUserId) {
         requireText(project.getTitle(), "Title is required");
@@ -70,9 +53,20 @@ public class ConstructionProjectService {
         if (project.getBuiltArea() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Built area is required");
         }
-        if (repository.existsByTitle(project.getTitle())) {
+        // Criar obra exige workspace ativo e papel elevado NA CONTA (OWNER/ADMIN).
+        // MEMBER/CLIENT agem via papéis de obra, nunca criam obras.
+        WorkspaceContext ctx = WorkspaceContext.current();
+        if (ctx == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found");
+        }
+        if (!ctx.isElevated()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only workspace OWNER or ADMIN can create projects");
+        }
+        if (repository.existsByWorkspaceIdAndTitle(ctx.workspaceId(), project.getTitle())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project with this title already exists");
         }
+        project.setWorkspaceId(ctx.workspaceId());
         Instant now = Instant.now();
         project.setCreatedAt(now);
         project.setUpdatedAt(now);
@@ -137,7 +131,7 @@ public class ConstructionProjectService {
         repository.findById(projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
-        requireProjectAccess(projectId, userId);
+        permissionService.requirePermission(projectId, userId, ProjectPermission.VIEW_PROJECT);
 
         return memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(projectId).stream()
                 .map(ConstructionProjectMemberResponse::from)
@@ -227,12 +221,19 @@ public class ConstructionProjectService {
         return new RolePermissionsResponse(role.name(), names);
     }
 
+    /** Todas as obras do sistema — só para staff da plataforma (Role.ADMIN, D7). */
     public List<ConstructionProject> getAll() {
         return repository.findAll();
     }
 
-    public List<ConstructionProject> getAllForUser(Long userId) {
-        return memberRepository.findAllProjectsByUserId(userId);
+    /** Todas as obras do workspace ativo — visão de OWNER/ADMIN da conta. */
+    public List<ConstructionProject> getAllForWorkspace(Long workspaceId) {
+        return repository.findAllByWorkspaceIdOrderByIdAsc(workspaceId);
+    }
+
+    /** Obras onde o usuário é membro, dentro do workspace ativo — MEMBER/CLIENT. */
+    public List<ConstructionProject> getAllForUser(Long userId, Long workspaceId) {
+        return memberRepository.findAllProjectsByUserIdAndWorkspaceId(userId, workspaceId);
     }
 
     /**
@@ -255,7 +256,7 @@ public class ConstructionProjectService {
         permissionService.requirePermission(id, userId, ProjectPermission.MANAGE_PROJECT);
 
         if (request.title() != null && !request.title().isBlank() && !request.title().equals(project.getTitle())) {
-            if (repository.existsByTitle(request.title())) {
+            if (repository.existsByWorkspaceIdAndTitle(project.getWorkspaceId(), request.title())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project with this title already exists");
             }
             project.setTitle(request.title());
