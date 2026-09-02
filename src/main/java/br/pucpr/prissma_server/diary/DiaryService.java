@@ -17,24 +17,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 
-/**
- * RF17: diario da obra.
- *
- * Cada registro guarda data com dia e horario, tipo (ocorrencia, entrega,
- * efetivo ou impedimento), responsavel, uma breve descricao e, opcionalmente,
- * o vinculo com um anexo ja carregado na obra.
- */
 @Service
 public class DiaryService {
 
-    /** Teto de itens por pagina, para o cliente nao pedir a tabela inteira em uma requisicao. */
     static final int MAX_PAGE_SIZE = 100;
     static final int DEFAULT_PAGE_SIZE = 20;
     static final int MAX_DESCRIPTION_LENGTH = 2000;
-
     private final DiaryEntryRepository diaryRepository;
     private final ConstructionProjectRepository projectRepository;
     private final ConstructionProjectMemberRepository memberRepository;
@@ -86,11 +76,6 @@ public class DiaryService {
         return DiaryEntryResponse.from(diaryRepository.save(entry));
     }
 
-    /**
-     * Lista paginada do diario da obra, da data mais recente para a mais antiga.
-     * A ordenacao esta fixa na query do repositorio: o cliente escolhe pagina e
-     * tamanho, nunca a ordem.
-     */
     @Transactional(readOnly = true)
     public DiaryEntryPageResponse list(Long projectId, Integer page, Integer size, Long userId) {
         requireProject(projectId);
@@ -99,43 +84,6 @@ public class DiaryService {
         Pageable pageable = PageRequest.of(resolvePage(page), resolveSize(size));
         Page<DiaryEntry> entries = diaryRepository.findPageByProject(projectId, pageable);
         return DiaryEntryPageResponse.from(entries);
-    }
-
-    @Transactional(readOnly = true)
-    public DiaryEntryResponse get(Long projectId, Long entryId, Long userId) {
-        DiaryEntry entry = requireEntryScopedToProject(projectId, entryId);
-        permissionService.requirePermission(projectId, userId, ProjectPermission.VIEW_PROJECT);
-        return DiaryEntryResponse.from(entry);
-    }
-
-    @Transactional
-    public DiaryEntryResponse update(Long projectId, Long entryId,
-                                     DiaryEntryUpdateRequest request, Long userId) {
-        DiaryEntry entry = requireEntryScopedToProject(projectId, entryId);
-        permissionService.requirePermission(projectId, userId, ProjectPermission.MANAGE_DIARY);
-
-        if (request.getEntryDate() != null) {
-            entry.setEntryDate(requireEntryDate(request.getEntryDate()));
-        }
-        if (request.getEntryType() != null && !request.getEntryType().isBlank()) {
-            entry.setEntryType(DiaryEntryType.fromString(request.getEntryType()));
-        }
-        if (request.getResponsibleUserId() != null) {
-            User responsible = requireProjectMemberUser(projectId, request.getResponsibleUserId());
-            entry.setResponsibleUser(responsible);
-            entry.setResponsibleName(responsible.getName());
-        }
-        if (request.getDescription() != null) {
-            entry.setDescription(requireDescription(request.getDescription()));
-        }
-        if (request.getAttachmentId() != null) {
-            entry.setAttachment(resolveAttachment(request.getAttachmentId(), projectId));
-        } else if (Boolean.TRUE.equals(request.getUnlinkAttachment())) {
-            entry.setAttachment(null);
-        }
-
-        entry.setUpdatedAt(Instant.now());
-        return DiaryEntryResponse.from(diaryRepository.save(entry));
     }
 
     @Transactional
@@ -150,11 +98,6 @@ public class DiaryService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
     }
 
-    /**
-     * Carrega o registro garantindo que ele pertence a obra da URL. Sem essa
-     * checagem, um membro de uma obra leria/editaria o diario de outra so
-     * trocando o id no path.
-     */
     private DiaryEntry requireEntryScopedToProject(Long projectId, Long entryId) {
         DiaryEntry entry = diaryRepository.findById(entryId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary entry not found"));
@@ -165,14 +108,6 @@ public class DiaryService {
         return entry;
     }
 
-    /**
-     * O diario registra o que ja aconteceu; data futura seria um lancamento invalido.
-     *
-     * As anotacoes de bean validation dos DTOs (@NotNull, @NotBlank, @Size) sao
-     * documentacao ate que spring-boot-starter-validation entre no projeto: sem
-     * o validador no classpath o @Valid do controller nao roda. Por isso o que e
-     * obrigatorio e checado aqui tambem, e nao so na borda.
-     */
     private Instant requireEntryDate(Instant entryDate) {
         if (entryDate == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entry date is required");
@@ -196,11 +131,6 @@ public class DiaryService {
         return trimmed;
     }
 
-    /**
-     * O responsavel precisa ser um membro ativo da obra: e ele quem responde
-     * pelo registro, entao apontar alguem de fora deixaria o diario sem valor
-     * de prova.
-     */
     private User requireProjectMemberUser(Long projectId, Long responsibleUserId) {
         User user = userRepository.findById(responsibleUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -218,7 +148,6 @@ public class DiaryService {
         return user;
     }
 
-    /** O anexo vinculado tem de ser da mesma obra do registro. */
     private Attachment resolveAttachment(Long attachmentId, Long projectId) {
         if (attachmentId == null) {
             return null;

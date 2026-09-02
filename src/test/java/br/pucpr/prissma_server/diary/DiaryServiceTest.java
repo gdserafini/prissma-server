@@ -366,75 +366,32 @@ class DiaryServiceTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
     }
 
-    // ============= GET / UPDATE / DELETE =============
+    // ============= DELETE =============
 
     @Test
-    @DisplayName("Nao deve devolver registro de outra obra")
-    void getRejectsEntryFromAnotherProject() {
+    @DisplayName("Nao deve excluir registro de outra obra")
+    void deleteRejectsEntryFromAnotherProject() {
         ConstructionProject other = new ConstructionProject();
         other.setId(99L);
         when(diaryRepository.findById(10L)).thenReturn(Optional.of(entry(10L, other)));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.get(PROJECT_ID, 10L, USER_ID));
+                () -> service.delete(PROJECT_ID, 10L, USER_ID));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         verify(permissionService, never()).requirePermission(any(), any(), any());
+        verify(diaryRepository, never()).delete(any());
     }
 
     @Test
-    @DisplayName("Deve atualizar descricao e tipo mantendo os demais campos")
-    void updateChangesOnlyProvidedFields() {
-        DiaryEntry existing = entry(10L, project);
-        Instant originalDate = existing.getEntryDate();
-        when(diaryRepository.findById(10L)).thenReturn(Optional.of(existing));
-        when(diaryRepository.save(any(DiaryEntry.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DiaryEntryUpdateRequest request = new DiaryEntryUpdateRequest(
-                null, "IMPEDIMENT", null, "Chuva forte parou a concretagem", null, null);
-
-        DiaryEntryResponse response = service.update(PROJECT_ID, 10L, request, USER_ID);
-
-        assertEquals(DiaryEntryType.IMPEDIMENT, response.entryType());
-        assertEquals("Chuva forte parou a concretagem", response.description());
-        assertEquals(originalDate, response.entryDate());
-        verify(permissionService).requirePermission(PROJECT_ID, USER_ID, ProjectPermission.MANAGE_DIARY);
-    }
-
-    @Test
-    @DisplayName("Nao deve aceitar descricao em branco no PATCH")
-    void updateRejectsBlankDescription() {
-        when(diaryRepository.findById(10L)).thenReturn(Optional.of(entry(10L, project)));
-
-        DiaryEntryUpdateRequest request = new DiaryEntryUpdateRequest(
-                null, null, null, "   ", null, null);
+    @DisplayName("Nao deve excluir registro inexistente")
+    void deleteRejectsMissingEntry() {
+        when(diaryRepository.findById(10L)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.update(PROJECT_ID, 10L, request, USER_ID));
+                () -> service.delete(PROJECT_ID, 10L, USER_ID));
 
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-        verify(diaryRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Deve desvincular o anexo quando unlinkAttachment vier true")
-    void updateUnlinksAttachment() {
-        DiaryEntry existing = entry(10L, project);
-        Attachment attachment = new Attachment();
-        attachment.setConstructionProject(project);
-        attachment.setFileName("antigo.pdf");
-        existing.setAttachment(attachment);
-
-        when(diaryRepository.findById(10L)).thenReturn(Optional.of(existing));
-        when(diaryRepository.save(any(DiaryEntry.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        DiaryEntryUpdateRequest request = new DiaryEntryUpdateRequest(
-                null, null, null, null, null, true);
-
-        DiaryEntryResponse response = service.update(PROJECT_ID, 10L, request, USER_ID);
-
-        assertNull(response.attachmentId());
-        assertNull(response.attachmentFileName());
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
     }
 
     @Test

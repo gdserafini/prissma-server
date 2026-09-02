@@ -8,22 +8,18 @@ import java.time.Instant;
 
 public class DiaryEntryRequest {
 
-    /** Data com dia e horario do fato registrado. */
     @NotNull(message = "Entry date is required")
     private Instant entryDate;
 
-    /** OCCURRENCE, DELIVERY, WORKFORCE ou IMPEDIMENT. */
     @NotBlank(message = "Entry type is required")
     private String entryType;
 
-    /** Responsavel pelo registro. Quando omitido, assume o usuario autenticado. */
     private Long responsibleUserId;
 
     @NotBlank(message = "Description is required")
     @Size(max = 2000, message = "Description must be at most 2000 characters")
     private String description;
 
-    /** Anexo ja carregado na obra que documenta o registro (opcional). */
     private Long attachmentId;
 
     public DiaryEntryRequest() {}

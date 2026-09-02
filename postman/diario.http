@@ -88,7 +88,7 @@ PROJECT
 ------Boundary--
 
 ### ============================================================
-### DIÁRIO DA OBRA – CRUD
+### DIÁRIO DA OBRA – criar, listar e excluir
 ### ============================================================
 
 ### 5. Criar registro (responsável = usuário autenticado quando omitido)
@@ -150,39 +150,7 @@ Authorization: Bearer {{JWT_TOKEN}}
 GET {{host}}/projects/{{projectId}}/diary-entries?page=1&size=3
 Authorization: Bearer {{JWT_TOKEN}}
 
-### 7. Obter um registro específico
-GET {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
-Authorization: Bearer {{JWT_TOKEN}}
-
-### 8. Atualizar (PATCH parcial – campos nulos são ignorados)
-PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
-Content-Type: application/json
-Authorization: Bearer {{JWT_TOKEN}}
-
-{
-  "entryType": "IMPEDIMENT",
-  "description": "Chuva forte parou a concretagem; retomada prevista para amanha"
-}
-
-### 8.1 Vincular um anexo a um registro existente
-PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
-Content-Type: application/json
-Authorization: Bearer {{JWT_TOKEN}}
-
-{
-  "attachmentId": {{attachmentId}}
-}
-
-### 8.2 Desvincular o anexo (PATCH ignora nulos, então precisa do sinal explícito)
-PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
-Content-Type: application/json
-Authorization: Bearer {{JWT_TOKEN}}
-
-{
-  "unlinkAttachment": true
-}
-
-### 9. Excluir registro
+### 7. Excluir registro (pegue o id na listagem acima)
 DELETE {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
 Authorization: Bearer {{JWT_TOKEN}}
 
@@ -251,8 +219,8 @@ Authorization: Bearer {{JWT_TOKEN}}
   "attachmentId": 99999
 }
 
-### 404 – registro acessado pela obra errada (isolamento entre obras)
-GET {{host}}/projects/99999/diary-entries/{{entryId}}
+### 404 – excluir registro pela obra errada (isolamento entre obras)
+DELETE {{host}}/projects/99999/diary-entries/{{entryId}}
 Authorization: Bearer {{JWT_TOKEN}}
 
 ### 403 – papel sem MANAGE_DIARY (faça login como ARCHITECT e repita o POST)

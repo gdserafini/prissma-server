@@ -6,14 +6,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.net.URI;
 
 @RestController
@@ -46,28 +44,12 @@ public class DiaryController {
         return ResponseEntity.created(location).body(response);
     }
 
-    /** Lista paginada, da data mais recente para a mais antiga. */
     @GetMapping
     public ResponseEntity<DiaryEntryPageResponse> list(@PathVariable Long projectId,
                                                        @RequestParam(required = false) Integer page,
                                                        @RequestParam(required = false) Integer size,
                                                        Authentication auth) {
         return ResponseEntity.ok(service.list(projectId, page, size, resolveUserId(auth)));
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<DiaryEntryResponse> get(@PathVariable Long projectId,
-                                                  @PathVariable Long id,
-                                                  Authentication auth) {
-        return ResponseEntity.ok(service.get(projectId, id, resolveUserId(auth)));
-    }
-
-    @PatchMapping("/{id}")
-    public ResponseEntity<DiaryEntryResponse> update(@PathVariable Long projectId,
-                                                     @PathVariable Long id,
-                                                     @Valid @RequestBody DiaryEntryUpdateRequest request,
-                                                     Authentication auth) {
-        return ResponseEntity.ok(service.update(projectId, id, request, resolveUserId(auth)));
     }
 
     @DeleteMapping("/{id}")

@@ -4,7 +4,6 @@ import br.pucpr.prissma_server.attachments.Attachment;
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.users.User;
 import jakarta.persistence.*;
-
 import java.time.Instant;
 
 @Entity
@@ -30,11 +29,6 @@ public class DiaryEntry {
     @JoinColumn(name = "responsible_user_id")
     private User responsibleUser;
 
-    /**
-     * Nome do responsavel no momento do registro. O diario e um historico:
-     * precisa continuar legivel mesmo depois que o usuario e removido e o
-     * FK acima vira NULL.
-     */
     @Column(name = "responsible_name", nullable = false)
     private String responsibleName;
 

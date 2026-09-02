@@ -3,19 +3,10 @@ package br.pucpr.prissma_server.diary;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Tipos de registro do diario da obra (RF17). */
 public enum DiaryEntryType {
-
-    /** Ocorrencia: qualquer fato relevante do dia. */
     OCCURRENCE,
-
-    /** Entrega: chegada de material, equipamento ou servico concluido. */
     DELIVERY,
-
-    /** Efetivo: registro da mao de obra presente na obra. */
     WORKFORCE,
-
-    /** Impedimento: algo que travou o andamento (chuva, falta de material...). */
     IMPEDIMENT;
 
     public static DiaryEntryType fromString(String value) {

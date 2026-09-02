@@ -1,14 +1,8 @@
 package br.pucpr.prissma_server.diary;
 
 import org.springframework.data.domain.Page;
-
 import java.util.List;
 
-/**
- * Envelope proprio da pagina em vez de serializar o Page do Spring Data
- * diretamente: o JSON do PageImpl nao tem contrato estavel entre versoes
- * (e o proprio Spring emite warning ao serializa-lo).
- */
 public record DiaryEntryPageResponse(
         List<DiaryEntryResponse> content,
         int page,
