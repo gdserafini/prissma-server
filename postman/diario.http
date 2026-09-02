@@ -1,0 +1,260 @@
+### Variables (ajuste conforme seu ambiente)
+@host = http://localhost:8080
+@projectId = 1
+@entryId = 1
+@attachmentId = 1
+@responsibleUserId = 1
+
+### JWT
+## NÃO COMMITAR TOKENS REAIS no repositório. Cole aqui apenas um token de teste.
+@JWT_TOKEN =
+
+### ============================================================
+### PRÉ-REQUISITOS – execute na ordem antes de tocar no diário
+### ============================================================
+###
+### 0) Banco de pé:
+###      docker compose up -d db
+###    (Postgres 17 em localhost:5432, base/usuário/senha = prissma)
+###    Suba a aplicação com ./mvnw spring-boot:run — o Flyway aplica a V13
+###    e cria construction_diary_entries automaticamente.
+###
+### 1) LOGIN — sem token nenhuma rota do diário responde (401)
+### 2) OBRA  — o diário é sempre de uma obra; sem ela: 404 "Project not found"
+### 3) MEMBRO ATIVO — quem escreve precisa de MANAGE_DIARY (OWNER, ENGINEER
+###    ou FOREMAN). Quem cria a obra já entra como OWNER, então o passo 3 só
+###    é necessário para testar outros papéis.
+### 4) ANEXO (opcional) — só se for testar o vínculo com attachment.
+
+### 1. Login (copie o token da resposta para @JWT_TOKEN acima)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@prissma.com",
+  "password": "Admin@123"
+}
+
+### 2. Criar a obra (o autor vira OWNER ativo automaticamente)
+POST {{host}}/projects
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "title": "Obra Diario",
+  "cep": "80000000",
+  "street": "Rua Teste",
+  "city": "Curitiba",
+  "state": "PR",
+  "number": "100",
+  "projectType": "RESIDENCIAL",
+  "category": "REFORMA",
+  "landArea": 100,
+  "builtArea": 80,
+  "plannedStartDate": "2026-01-10",
+  "plannedEndDate": "2026-06-10"
+}
+
+### 2.1 Conferir os membros da obra (confirma o OWNER ACTIVE)
+GET {{host}}/projects/{{projectId}}/members
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 3. (Opcional) Vincular outro usuário para testar papéis
+### FOREMAN escreve no diário; ARCHITECT só lê.
+POST {{host}}/projects/{{projectId}}/members
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "userId": 2,
+  "roleInProject": "FOREMAN"
+}
+
+### 4. (Opcional) Subir um anexo da obra para vincular ao registro
+### Use um arquivo real; tipos aceitos: pdf, png, jpeg, gif, bmp, tiff, webp, docx.
+POST {{host}}/projects/{{projectId}}/attachments
+Authorization: Bearer {{JWT_TOKEN}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="relatorio.pdf"
+Content-Type: application/pdf
+
+< ./relatorio.pdf
+------Boundary
+Content-Disposition: form-data; name="target"
+
+PROJECT
+------Boundary--
+
+### ============================================================
+### DIÁRIO DA OBRA – CRUD
+### ============================================================
+
+### 5. Criar registro (responsável = usuário autenticado quando omitido)
+### entryType: OCCURRENCE | DELIVERY | WORKFORCE | IMPEDIMENT
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-08-30T08:00:00Z",
+  "entryType": "OCCURRENCE",
+  "description": "Inicio da alvenaria do pavimento terreo"
+}
+
+### 5.1 Entrega de material
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-08-31T13:30:00Z",
+  "entryType": "DELIVERY",
+  "description": "Entrega de 200 sacos de cimento"
+}
+
+### 5.2 Efetivo do dia
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T07:15:00Z",
+  "entryType": "WORKFORCE",
+  "description": "12 profissionais: 6 pedreiros, 4 serventes, 2 eletricistas"
+}
+
+### 5.3 Impedimento, com responsável explícito e anexo vinculado
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T16:45:00Z",
+  "entryType": "IMPEDIMENT",
+  "description": "Chuva forte interrompeu a concretagem as 16h",
+  "responsibleUserId": {{responsibleUserId}},
+  "attachmentId": {{attachmentId}}
+}
+
+### 6. Listar paginado (mais recente primeiro) — padrão page=0, size=20
+GET {{host}}/projects/{{projectId}}/diary-entries
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 6.1 Primeira página com 3 itens
+GET {{host}}/projects/{{projectId}}/diary-entries?page=0&size=3
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 6.2 Segunda página (confirma a continuidade da ordenação)
+GET {{host}}/projects/{{projectId}}/diary-entries?page=1&size=3
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 7. Obter um registro específico
+GET {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 8. Atualizar (PATCH parcial – campos nulos são ignorados)
+PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryType": "IMPEDIMENT",
+  "description": "Chuva forte parou a concretagem; retomada prevista para amanha"
+}
+
+### 8.1 Vincular um anexo a um registro existente
+PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "attachmentId": {{attachmentId}}
+}
+
+### 8.2 Desvincular o anexo (PATCH ignora nulos, então precisa do sinal explícito)
+PATCH {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "unlinkAttachment": true
+}
+
+### 9. Excluir registro
+DELETE {{host}}/projects/{{projectId}}/diary-entries/{{entryId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### ============================================================
+### EXEMPLOS DE ERRO / VALIDAÇÃO
+### ============================================================
+
+### 400 – data no futuro (o diário registra o que já aconteceu)
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2030-01-01T10:00:00Z",
+  "entryType": "OCCURRENCE",
+  "description": "registro no futuro"
+}
+
+### 400 – tipo inválido
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T10:00:00Z",
+  "entryType": "ATRASO",
+  "description": "tipo que nao existe"
+}
+
+### 400 – descrição em branco
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T10:00:00Z",
+  "entryType": "OCCURRENCE",
+  "description": "   "
+}
+
+### 400 – responsável que não é membro ativo da obra
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T10:00:00Z",
+  "entryType": "OCCURRENCE",
+  "description": "responsavel de fora da obra",
+  "responsibleUserId": 999
+}
+
+### 400 – size acima do teto de 100
+GET {{host}}/projects/{{projectId}}/diary-entries?size=500
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 404 – anexo de outra obra
+POST {{host}}/projects/{{projectId}}/diary-entries
+Content-Type: application/json
+Authorization: Bearer {{JWT_TOKEN}}
+
+{
+  "entryDate": "2026-09-01T10:00:00Z",
+  "entryType": "DELIVERY",
+  "description": "anexo de outra obra",
+  "attachmentId": 99999
+}
+
+### 404 – registro acessado pela obra errada (isolamento entre obras)
+GET {{host}}/projects/99999/diary-entries/{{entryId}}
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 403 – papel sem MANAGE_DIARY (faça login como ARCHITECT e repita o POST)
+### 401 – sem o header Authorization
+GET {{host}}/projects/{{projectId}}/diary-entries

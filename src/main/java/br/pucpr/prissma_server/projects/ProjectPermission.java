@@ -11,7 +11,8 @@ public enum ProjectPermission {
     MANAGE_STAGES,      
     MANAGE_TEAMS,       
     MANAGE_TASKS,        
-    MANAGE_ATTACHMENTS; 
+    MANAGE_ATTACHMENTS,
+    MANAGE_DIARY;
 
     public static ProjectPermission fromString(String value) {
         if (value == null || value.isBlank()) {
