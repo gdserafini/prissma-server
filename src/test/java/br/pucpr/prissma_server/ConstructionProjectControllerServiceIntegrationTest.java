@@ -62,6 +62,20 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @MockitoBean
     private TaskService taskService;
 
+    // ConstructionProjectService (importado real via @Import) exige 5 colaboradores;
+    // sem estes dois mocks o contexto do slice nem sobe (NoSuchBeanDefinitionException).
+    @MockitoBean
+    private br.pucpr.prissma_server.projects.ProjectPermissionService permissionService;
+
+    @MockitoBean
+    private br.pucpr.prissma_server.task.TaskRepository taskRepository;
+
+    // O WorkspaceContextFilter é um bean de Filter e entra no slice web mesmo
+    // com addFilters=false (ele é construído, só não aplicado) — precisa do
+    // WorkspaceService satisfeito.
+    @MockitoBean
+    private br.pucpr.prissma_server.workspaces.WorkspaceService workspaceService;
+
     private ConstructionProject sampleProject() {
         ConstructionProject p = new ConstructionProject();
         p.setTitle("Obra de Teste");
@@ -78,6 +92,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         p.setStatus("PLANNING");
         p.setPlannedStartDate(LocalDate.of(2026,6,1));
         p.setPlannedEndDate(LocalDate.of(2026,12,1));
+        p.setWorkspaceId(5L);
         p.setCreatedAt(Instant.now());
         p.setUpdatedAt(Instant.now());
         return p;
@@ -101,10 +116,28 @@ public class ConstructionProjectControllerServiceIntegrationTest {
         return new UsernamePasswordAuthenticationToken(userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
+    /**
+     * O slice roda com addFilters=false, então o WorkspaceContextFilter não
+     * existe aqui — o contexto de tenant é posto direto no SecurityContextHolder
+     * (MockMvc executa na mesma thread).
+     */
+    private void workspaceContext(Long userId, Long workspaceId,
+                                  br.pucpr.prissma_server.workspaces.WorkspaceRole role, boolean owner) {
+        UsernamePasswordAuthenticationToken authentication = auth(userId);
+        authentication.setDetails(new br.pucpr.prissma_server.workspaces.WorkspaceContext(workspaceId, role, owner));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearSecurityContext() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("POST /projects -> 201 when created")
     void postCreateProject() throws Exception {
-        when(repository.existsByTitle("Obra de Teste")).thenReturn(false);
+        workspaceContext(1L, 5L, br.pucpr.prissma_server.workspaces.WorkspaceRole.OWNER, true);
+        when(repository.existsByWorkspaceIdAndTitle(5L, "Obra de Teste")).thenReturn(false);
         when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser()));
         when(repository.save(any(ConstructionProject.class))).thenAnswer(invocation -> {
             ConstructionProject p = invocation.getArgument(0);
@@ -145,7 +178,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @Test
     @DisplayName("POST /projects -> 400 on duplicate title")
     void postCreateProject_duplicate() throws Exception {
-        when(repository.existsByTitle("Obra de Teste")).thenReturn(true);
+        workspaceContext(1L, 5L, br.pucpr.prissma_server.workspaces.WorkspaceRole.OWNER, true);
+        when(repository.existsByWorkspaceIdAndTitle(5L, "Obra de Teste")).thenReturn(true);
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("title", "Obra de Teste");
@@ -162,8 +196,9 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     @DisplayName("GET /projects -> 200 and list")
     void getAllProjects() throws Exception {
         ConstructionProject p = sampleProject();
+        workspaceContext(2L, 5L, br.pucpr.prissma_server.workspaces.WorkspaceRole.MEMBER, false);
         when(userRepository.findById(2L)).thenReturn(Optional.of(regularUser()));
-        when(memberRepository.findAllProjectsByUserId(2L)).thenReturn(List.of(p));
+        when(memberRepository.findAllProjectsByUserIdAndWorkspaceId(2L, 5L)).thenReturn(List.of(p));
 
         mockMvc.perform(get("/projects")
                         .principal(auth(2L)))
@@ -186,7 +221,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     void patchUpdateProject() throws Exception {
         ConstructionProject existing = sampleProject();
         when(repository.findById(20L)).thenReturn(Optional.of(existing));
-        when(repository.existsByTitle("New Title")).thenReturn(false);
+        when(repository.existsByWorkspaceIdAndTitle(5L, "New Title")).thenReturn(false);
         when(repository.save(any(ConstructionProject.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
@@ -209,7 +244,7 @@ public class ConstructionProjectControllerServiceIntegrationTest {
     void patchUpdateProject_duplicateTitle() throws Exception {
         ConstructionProject existing = sampleProject();
         when(repository.findById(21L)).thenReturn(Optional.of(existing));
-        when(repository.existsByTitle("Other")).thenReturn(true);
+        when(repository.existsByWorkspaceIdAndTitle(5L, "Other")).thenReturn(true);
 
         String payload = objectMapper.writeValueAsString(new java.util.HashMap<String, Object>() {{
             put("title", "Other");
@@ -343,6 +378,8 @@ public class ConstructionProjectControllerServiceIntegrationTest {
                 .andExpect(jsonPath("$[1].roleInProject").value("ENGINEER"));
     }
 
+    @Test
+    @DisplayName("DELETE /projects/{id} -> 204 when deleted")
     void deleteProject_success() throws Exception {
         when(repository.existsById(33L)).thenReturn(true);
         doNothing().when(repository).deleteById(33L);
