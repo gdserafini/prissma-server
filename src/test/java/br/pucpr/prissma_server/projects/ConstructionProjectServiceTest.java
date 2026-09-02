@@ -1,5 +1,6 @@
 package br.pucpr.prissma_server.projects;
 
+import br.pucpr.prissma_server.task.TaskRepository;
 import br.pucpr.prissma_server.users.Role;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -19,6 +21,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +36,12 @@ class ConstructionProjectServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ProjectPermissionService permissionService;
+
+    @Mock
+    private TaskRepository taskRepository;
 
     @InjectMocks
     private ConstructionProjectService service;
@@ -109,8 +118,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("OWNER can add a member to the project")
     void addMember_asOwner_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(userRepository.findById(20L)).thenReturn(Optional.of(targetUser));
         when(memberRepository.findByConstructionProjectIdAndUserId(1L, 20L)).thenReturn(Optional.empty());
         when(memberRepository.save(any(ConstructionProjectMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -128,8 +135,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("ENGINEER can add a member to the project")
     void addMember_asEngineer_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(11L)).thenReturn(Optional.of(engineerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 11L)).thenReturn(Optional.of(engineerMember));
         when(userRepository.findById(20L)).thenReturn(Optional.of(targetUser));
         when(memberRepository.findByConstructionProjectIdAndUserId(1L, 20L)).thenReturn(Optional.empty());
         when(memberRepository.save(any(ConstructionProjectMember.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -157,21 +162,23 @@ class ConstructionProjectServiceTest {
         foremanMember.setJoinedAt(Instant.now());
 
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(12L)).thenReturn(Optional.of(foremanUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 12L)).thenReturn(Optional.of(foremanMember));
+        // A decisão de permissão vive no ProjectPermissionService (coberto em
+        // ProjectPermissionServiceTest); aqui testamos só o repasse da negação.
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "User does not have permission to perform this operation: MANAGE_MEMBERS"))
+                .when(permissionService).requirePermission(1L, 12L, ProjectPermission.MANAGE_MEMBERS);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.addMember(1L, 12L, new AddProjectMemberRequest(20L, "FOREMAN")));
 
-        assertEquals("Only OWNER or ENGINEER can manage project members", exception.getReason());
+        assertEquals("User does not have permission to perform this operation: MANAGE_MEMBERS",
+                exception.getReason());
     }
 
     @Test
     @DisplayName("Adding an existing member returns conflict")
     void addMember_duplicate_conflict() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(userRepository.findById(20L)).thenReturn(Optional.of(targetUser));
         when(memberRepository.findByConstructionProjectIdAndUserId(1L, 20L)).thenReturn(Optional.of(new ConstructionProjectMember()));
 
@@ -185,8 +192,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("Unknown target user returns not found")
     void addMember_targetUserNotFound() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(userRepository.findById(20L)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
@@ -199,14 +204,12 @@ class ConstructionProjectServiceTest {
     @DisplayName("Invalid role in project is rejected")
     void addMember_invalidRoleRejected() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(userRepository.findById(20L)).thenReturn(Optional.of(targetUser));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.addMember(1L, 10L, new AddProjectMemberRequest(20L, "OWNER")));
 
-        assertEquals("Role in project must be ENGINEER, ARCHITECT, or FOREMAN", exception.getReason());
+        assertEquals("Role in project must be ENGINEER, ARCHITECT, FOREMAN, or USER", exception.getReason());
     }
 
 
@@ -214,8 +217,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("OWNER can list project members")
     void getMembers_asOwner_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(ownerUser));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMember));
         when(memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(1L))
                 .thenReturn(List.of(ownerMember, engineerMember, targetMember));
 
@@ -231,7 +232,6 @@ class ConstructionProjectServiceTest {
     @DisplayName("ADMIN can list project members")
     void getMembers_asAdmin_succeeds() {
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(99L)).thenReturn(Optional.of(adminUser));
         when(memberRepository.findAllByConstructionProjectIdOrderByJoinedAtAscIdAsc(1L))
                 .thenReturn(List.of(ownerMember, engineerMember));
 
@@ -251,8 +251,8 @@ class ConstructionProjectServiceTest {
         outsider.setRole(Role.USER);
 
         when(repository.findById(1L)).thenReturn(Optional.of(project));
-        when(userRepository.findById(30L)).thenReturn(Optional.of(outsider));
-        when(memberRepository.findByConstructionProjectIdAndUserId(1L, 30L)).thenReturn(Optional.empty());
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of this project"))
+                .when(permissionService).requirePermission(1L, 30L, ProjectPermission.VIEW_PROJECT);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> service.getMembers(1L, 30L));

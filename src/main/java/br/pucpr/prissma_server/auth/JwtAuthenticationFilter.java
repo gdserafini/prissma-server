@@ -21,6 +21,9 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    /** Attribute com o claim workspaceId do token verificado (Long), se houver. */
+    public static final String WORKSPACE_CLAIM_ATTRIBUTE = "jwt.workspaceId";
+
     private final Algorithm algorithm;
 
     public JwtAuthenticationFilter(@Value("${security.jwt.secret}") String secret) {
@@ -42,6 +45,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         List.of(new SimpleGrantedAuthority("ROLE_" + role))
                 );
                 SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // Claim de workspace vai num attribute para o WorkspaceContextFilter
+                // (que roda depois) não precisar verificar a assinatura de novo.
+                Long workspaceClaim = decoded.getClaim("workspaceId").asLong();
+                if (workspaceClaim != null) {
+                    request.setAttribute(WORKSPACE_CLAIM_ATTRIBUTE, workspaceClaim);
+                }
             } catch (JWTVerificationException ignored) {
             }
         }

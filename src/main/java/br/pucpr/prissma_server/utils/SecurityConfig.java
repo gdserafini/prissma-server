@@ -1,6 +1,7 @@
 package br.pucpr.prissma_server.utils;
 
 import br.pucpr.prissma_server.auth.JwtAuthenticationFilter;
+import br.pucpr.prissma_server.workspaces.WorkspaceContextFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,9 +21,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final WorkspaceContextFilter workspaceContextFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          WorkspaceContextFilter workspaceContextFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.workspaceContextFilter = workspaceContextFilter;
     }
 
     @Bean
@@ -41,10 +45,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users").permitAll()
+                        // Aceite de convite é público: o convidado ainda não tem conta.
+                        .requestMatchers(HttpMethod.PATCH, "/workspaces/invites/*/accept").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "ENG", "ARQ")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(workspaceContextFilter, JwtAuthenticationFilter.class)
                 .build();
     }
 

@@ -13,9 +13,12 @@ public enum ProjectRole {
     ENGINEER(EnumSet.of(VIEW_PROJECT, MANAGE_PROJECT, MANAGE_MEMBERS, MANAGE_BUDGET,
             MANAGE_STAGES, MANAGE_TEAMS, MANAGE_TASKS, MANAGE_ATTACHMENTS)),
 
-    ARCHITECT(EnumSet.of(VIEW_PROJECT, MANAGE_ATTACHMENTS)),
+    // A matriz do design dá "w" em Tarefas ao arquiteto (decisão A1) e esconde
+    // Orçamento do mestre (decisão A2) — os defaults abaixo espelham o design.
+    // Obras com override em project_role_permissions não são afetadas.
+    ARCHITECT(EnumSet.of(VIEW_PROJECT, MANAGE_TASKS, MANAGE_ATTACHMENTS)),
 
-    FOREMAN(EnumSet.of(VIEW_PROJECT, MANAGE_BUDGET, MANAGE_TEAMS,
+    FOREMAN(EnumSet.of(VIEW_PROJECT, MANAGE_TEAMS,
             MANAGE_TASKS, MANAGE_ATTACHMENTS)),
 
     USER(EnumSet.of(VIEW_PROJECT));

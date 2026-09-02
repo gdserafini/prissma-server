@@ -53,9 +53,17 @@ public class ConstructionProjectController {
 
         List<ConstructionProject> projects;
         if (user.getRole() == Role.ADMIN) {
+            // Staff da plataforma (D7): visão global de suporte, documentada.
             projects = service.getAll();
         } else {
-            projects = service.getAllForUser(userId);
+            var ctx = br.pucpr.prissma_server.workspaces.WorkspaceContext.current();
+            if (ctx == null) {
+                projects = List.of();
+            } else if (ctx.isElevated()) {
+                projects = service.getAllForWorkspace(ctx.workspaceId());
+            } else {
+                projects = service.getAllForUser(userId, ctx.workspaceId());
+            }
         }
 
         List<ConstructionProjectResponse> list = projects.stream().map(ConstructionProjectResponse::from).toList();

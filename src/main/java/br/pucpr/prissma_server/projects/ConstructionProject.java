@@ -14,8 +14,17 @@ public class ConstructionProject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 255)
+    // Unicidade de título é POR WORKSPACE (uq_construction_projects_ws_title,
+    // V14) — duas construtoras podem ter obras homônimas.
+    @Column(nullable = false, length = 255)
     private String title;
+
+    /**
+     * Tenant da obra. Coluna crua (sem @ManyToOne) de propósito: o escopo é
+     * comparado por id no ProjectPermissionService e nunca precisa do agregado.
+     */
+    @Column(name = "workspace_id", nullable = false)
+    private Long workspaceId;
 
     @Column(length = 10)
     private String cep;
@@ -79,6 +88,14 @@ public class ConstructionProject {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public Long getWorkspaceId() {
+        return workspaceId;
+    }
+
+    public void setWorkspaceId(Long workspaceId) {
+        this.workspaceId = workspaceId;
     }
 
     public String getCep() {
