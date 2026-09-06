@@ -1,0 +1,109 @@
+### Variables (ajuste conforme seu ambiente)
+@host = http://localhost:8080
+@projectId = 1
+
+### JWT
+## NÃO COMMITAR TOKENS REAIS no repositório. Cole aqui apenas um token de teste.
+@JWT_TOKEN =
+
+### ============================================================
+### RELATÓRIO DA OBRA — PDF de uma página
+### ============================================================
+###
+### O relatório junta, para um intervalo de datas:
+###   - dados cadastrais da obra
+###   - etapas concluídas/totais e tarefas concluídas/totais
+###   - orçamento planejado vs. executado (por categoria)
+###   - desvio de dias e atrasos
+###   - equipe ativa
+###
+### O intervalo filtra ATIVIDADE (despesas por spent_at, conclusões por
+### actual_end_date/completed_at). Os denominadores de etapas e tarefas, os
+### dados da obra e a equipe continuam absolutos.
+###
+### PRÉ-REQUISITOS
+###   0) Banco de pé: docker compose up -d db
+###   1) LOGIN — sem token nenhuma rota responde (401)
+###   2) OBRA com etapas; sem ela: 404 "Project not found"
+###   3) Para o relatório ficar interessante, cadastre etapas com
+###      actual_end_date diferente de planned_end_date (é de onde sai o desvio),
+###      um orçamento com itens e despesas, e mais de um membro.
+###
+### PERMISSÃO: basta VIEW_PROJECT, que todo papel de obra tem — inclusive USER
+### (o cliente que só acompanha).
+###
+### SOBRE O HEADER Accept: em caso de erro, o ExceptionHandlerAdvice global
+### responde com a mensagem em texto, não em PDF. Um cliente que mande
+### "Accept: application/pdf" puro receberia 406 no lugar do 400/403/404. Por
+### isso o front deve pedir "application/pdf, */*" (ou omitir o Accept) — é o
+### mesmo motivo pelo qual o endpoint não declara "produces" no @GetMapping.
+
+### 1. Login (copie o token da resposta para @JWT_TOKEN acima)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@prissma.com",
+  "password": "Admin@123"
+}
+
+### ============================================================
+### CAMINHO FELIZ
+### ============================================================
+
+### 2. Relatório de um período específico
+# No VS Code REST Client / IntelliJ, use "Save response to file" para abrir o PDF.
+GET {{host}}/projects/{{projectId}}/report?from=2026-06-01&to=2026-06-30
+Authorization: Bearer {{JWT_TOKEN}}
+Accept: application/pdf
+
+### 3. Sem datas — período assume do início planejado da obra até hoje
+GET {{host}}/projects/{{projectId}}/report
+Authorization: Bearer {{JWT_TOKEN}}
+Accept: application/pdf
+
+### 4. Só a data inicial — o fim assume hoje
+GET {{host}}/projects/{{projectId}}/report?from=2026-01-01
+Authorization: Bearer {{JWT_TOKEN}}
+Accept: application/pdf
+
+### 5. Período sem nenhuma atividade — deve gerar o PDF assim mesmo,
+###    com os totais da obra e os blocos do período zerados.
+GET {{host}}/projects/{{projectId}}/report?from=2020-01-01&to=2020-01-31
+Authorization: Bearer {{JWT_TOKEN}}
+Accept: application/pdf
+
+### ============================================================
+### O QUE CONFERIR NO PDF GERADO
+### ============================================================
+###
+###  [ ] Tem UMA página só, mesmo em obra com muitas etapas
+###      (a tabela corta em 8 linhas e mostra "+N etapas no período")
+###  [ ] Os três gráficos aparecem. Gráfico EM BRANCO normalmente é xmlns
+###      faltando no <svg> — ver ReportChartSvg.
+###  [ ] Acentos corretos: "Relatório", "Fundação", "Situação".
+###      Um '#' no lugar do acento significa glifo fora da fonte.
+###  [ ] Etapas/tarefas batem com GET /projects/{id}/acompanhamento
+###  [ ] Executado acumulado bate com GET /projects/{id}/budget
+###  [ ] NENHUM e-mail de membro aparece — só nome e papel
+###
+### ============================================================
+### EXEMPLOS DE ERRO
+### ============================================================
+
+### 6. 401 — sem token
+GET {{host}}/projects/{{projectId}}/report
+
+### 7. 400 — data inicial depois da final
+GET {{host}}/projects/{{projectId}}/report?from=2026-06-30&to=2026-06-01
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 8. 400 — data em formato inválido (esperado ISO yyyy-MM-dd)
+GET {{host}}/projects/{{projectId}}/report?from=30/06/2026
+Authorization: Bearer {{JWT_TOKEN}}
+
+### 9. 404 — obra inexistente, ou obra de outro workspace
+###    (obra de outro tenant responde 404, nunca 403: não se revela a
+###     existência de obras de outra construtora)
+GET {{host}}/projects/999999/report
+Authorization: Bearer {{JWT_TOKEN}}
