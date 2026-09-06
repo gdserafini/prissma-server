@@ -19,4 +19,17 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.budgetItem.projectBudget.id = :budgetId")
     BigDecimal sumAmountByProjectBudgetId(@Param("budgetId") Long budgetId);
+
+    /**
+     * Despesas do orçamento com o item já carregado, para o relatório da obra.
+     *
+     * O findByProjectBudgetId acima não faz fetch do budgetItem; como o relatório
+     * agrupa por categoria e a aplicação roda com open-in-view=false, cada acesso
+     * a e.getBudgetItem().getCategory() viraria uma query (N+1) ou uma
+     * LazyInitializationException fora da transação.
+     */
+    @Query("SELECT e FROM Expense e JOIN FETCH e.budgetItem "
+            + "WHERE e.budgetItem.projectBudget.id = :budgetId "
+            + "ORDER BY e.spentAt ASC, e.id ASC")
+    List<Expense> findAllForReport(@Param("budgetId") Long budgetId);
 }

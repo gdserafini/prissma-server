@@ -16,7 +16,7 @@
 ### 0) Banco de pé:
 ###      docker compose up -d db
 ###    (Postgres 17 em localhost:5432, base/usuário/senha = prissma)
-###    Suba a aplicação com ./mvnw spring-boot:run — o Flyway aplica a V13
+###    Suba a aplicação com ./mvnw spring-boot:run — o Flyway aplica a V16
 ###    e cria construction_diary_entries automaticamente.
 ###
 ### 1) LOGIN — sem token nenhuma rota do diário responde (401)

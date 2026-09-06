@@ -1,0 +1,370 @@
+<!--/*
+  Relatório da obra - uma página A4.
+
+  RESTRIÇÕES DO RENDERER (openhtmltopdf), não são preferências de estilo:
+
+  1. A saída precisa ser XML BEM FORMADO — o renderer parseia com Xerces, não
+     com um parser de HTML. Tag aberta = SAXParseException e falha total.
+     Este template é resolvido em modo XML (ver ReportTemplateConfig), então o
+     que está escrito aqui é exatamente o que sai. Três consequências:
+       a) toda tag fechada, sem exceção. Fora os elementos void (meta, br, img),
+          escreva sempre o par abre/fecha, inclusive nos filhos do SVG
+          (circle, rect, line);
+       b) dentro de style e de comentário, NUNCA escreva nome de tag entre
+          sinais de menor/maior. Em XML o style NAO e raw text: um nome de tag
+          citado num comentário de CSS vira elemento aberto de verdade e derruba
+          a renderização inteira. Já aconteceu, e o erro aponta o SVG mesmo com
+          o SVG correto;
+       c) comentário nunca pode conter dois hifens seguidos.
+
+  2. NADA de entidades nomeadas do HTML (nbsp, mdash, aacute e companhia). O
+     catálogo de entidades do renderer tem só dois public IDs próprios, e
+     qualquer outra referência é erro fatal de parse. Escreva UTF-8 literal e,
+     para espaço rígido, use a referência numérica 160.
+
+  3. É CSS 2.1: não existe flex, grid, gap, calc(), var(), box-shadow nem
+     conic-gradient. Layout em colunas usa display:table + table-layout:fixed.
+
+  4. Alturas orçadas em mm somando <= 273mm (A4 menos 12mm de margem dos dois
+     lados). A .page ainda tem overflow:hidden como última rede de proteção, mas
+     o corte de verdade é feito em Java (ReportMetrics.MAX_STAGE_LINES).
+*/-->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8" />
+    <title>Relatório da obra</title>
+    <style>
+        @page { size: A4; margin: 12mm; }
+
+        body {
+            font-family: "Report Sans", sans-serif;
+            font-size: 8pt;
+            color: #1D2939;
+            margin: 0;
+            padding: 0;
+        }
+
+        .page { height: 273mm; overflow: hidden; }
+
+        .row { display: table; width: 100%; table-layout: fixed; }
+        .cell { display: table-cell; vertical-align: top; }
+
+        .band { page-break-inside: avoid; }
+
+        /* ---------- cabeçalho ---------- */
+        .band-header { height: 16mm; border-bottom: 1.4pt solid #1D4ED8; }
+        .eyebrow { font-size: 7pt; letter-spacing: 1pt; color: #667085; text-transform: uppercase; }
+        .title { font-size: 16pt; font-weight: 700; margin-top: 1mm; }
+        .header-meta { text-align: right; font-size: 7.5pt; color: #667085; padding-top: 4mm; }
+
+        /* ---------- dados da obra ---------- */
+        .band-info { height: 22mm; padding-top: 3mm; }
+        .field { padding-right: 4mm; }
+        .field-label { font-size: 6.5pt; letter-spacing: 0.4pt; color: #667085; text-transform: uppercase; }
+        .field-value { font-size: 8.5pt; margin-top: 0.6mm; }
+        .field-value-wide { font-size: 8pt; }
+
+        /* ---------- KPIs ---------- */
+        .band-kpi { height: 24mm; }
+        .kpi {
+            border: 0.8pt solid #E4E7EC;
+            border-radius: 2mm;
+            padding: 2.6mm 3mm;
+            margin-right: 3mm;
+            height: 15mm;
+        }
+        .kpi-last { margin-right: 0; }
+        .kpi-label { font-size: 6.5pt; letter-spacing: 0.4pt; color: #667085; text-transform: uppercase; }
+        .kpi-value { font-size: 15pt; font-weight: 700; margin-top: 1mm; color: #1D4ED8; }
+        .kpi-caption { font-size: 6.8pt; color: #667085; margin-top: 0.6mm; }
+
+        /* ---------- gráficos ---------- */
+        .band-charts { height: 66mm; padding-top: 2mm; }
+        .section-title {
+            font-size: 7pt; letter-spacing: 0.8pt; color: #667085;
+            text-transform: uppercase; margin-bottom: 2mm;
+        }
+
+        /* O rótulo central do donut é HTML sobreposto: texto dentro do SVG só
+           renderiza se houver fonte registrada para o caso de uso SVG, e some sem
+           avisar quando não há. Como HTML ele ainda fica selecionável no PDF.
+           NUNCA escreva nome de tag entre sinais de menor/maior aqui dentro: o
+           documento é parseado como XML puro, onde style NAO e raw text, e isso
+           virou uma tag aberta que derrubou a renderização inteira. */
+        .donut-wrap { position: relative; height: 34mm; width: 34mm; }
+        .donut-center { position: absolute; top: 11mm; left: 0; width: 34mm; text-align: center; }
+        .donut-percent { font-size: 13pt; font-weight: 700; color: #1D4ED8; }
+        .donut-caption { text-align: center; font-size: 7pt; color: #667085; margin-top: 1.5mm; width: 34mm; }
+
+        .cat { margin-bottom: 2.4mm; }
+        .cat-name { font-size: 7.5pt; font-weight: 700; }
+        .cat-line { margin-top: 0.7mm; }
+        .cat-tag { font-size: 6.5pt; color: #667085; width: 16mm; display: inline-block; }
+        .bar-shell { display: inline-block; width: 62mm; vertical-align: middle; }
+        .bar { height: 2.4mm; border-radius: 1.2mm; }
+        .bar-planned { background-color: #B2CCFF; }
+        .bar-executed { background-color: #1D4ED8; }
+        .bar-exceeded { background-color: #B42318; }
+        .cat-value { font-size: 6.8pt; color: #344054; padding-left: 1.5mm; }
+        .no-budget { font-size: 7.5pt; color: #667085; padding-top: 8mm; }
+
+        /* ---------- desvio ---------- */
+        .band-deviation { height: 44mm; padding-top: 1mm; }
+        .dev-labels { display: table; width: 100%; table-layout: fixed; margin-top: 1mm; }
+        .dev-label {
+            display: table-cell; text-align: center; font-size: 6.2pt; color: #667085;
+            padding: 0 0.5mm; word-wrap: break-word;
+        }
+        .legend { font-size: 6.5pt; color: #667085; margin-top: 1mm; }
+        .swatch { display: inline-block; width: 2.2mm; height: 2.2mm; border-radius: 0.5mm; }
+        .swatch-late { background-color: #B42318; }
+        .swatch-ahead { background-color: #067647; }
+
+        /* ---------- tabela de etapas ---------- */
+        .band-stages { height: 79mm; padding-top: 1mm; }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            font-size: 6.5pt; letter-spacing: 0.4pt; color: #667085; text-transform: uppercase;
+            text-align: left; border-bottom: 0.8pt solid #D0D5DD; padding: 1.4mm 1mm;
+        }
+        td { font-size: 7.5pt; border-bottom: 0.5pt solid #EAECF0; padding: 1.4mm 1mm; }
+        .num { text-align: right; }
+        .late { color: #B42318; font-weight: 700; }
+        .more { font-size: 7pt; color: #667085; padding-top: 1.5mm; }
+        .empty-row td { color: #98A2B3; }
+
+        /* ---------- equipe / rodapé ---------- */
+        .band-team { height: 16mm; border-top: 0.8pt solid #E4E7EC; padding-top: 2mm; }
+        .member { font-size: 7.5pt; padding-right: 3mm; }
+        .empty-value { color: #98A2B3; }
+        .footer { font-size: 6.5pt; color: #98A2B3; margin-top: 1.5mm; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- cabeçalho -->
+    <div class="band band-header">
+        <div class="row">
+            <div class="cell">
+                <div class="eyebrow">Relatório da obra</div>
+                <div class="title" th:text="${report.title}">Obra</div>
+            </div>
+            <div class="cell header-meta" style="width: 62mm;">
+                <div th:text="${report.periodLabel}">Período</div>
+                <div th:text="${report.issuedAtLabel}">Emitido em</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- dados da obra -->
+    <div class="band band-info">
+        <div class="row">
+            <div class="cell field" style="width: 34%;">
+                <div class="field-label">Endereço</div>
+                <div class="field-value field-value-wide" th:text="${report.address}">Endereço</div>
+            </div>
+            <div class="cell field" style="width: 16%;">
+                <div class="field-label">Tipo</div>
+                <div class="field-value" th:text="${report.projectType}">Tipo</div>
+            </div>
+            <div class="cell field" style="width: 16%;">
+                <div class="field-label">Categoria</div>
+                <div class="field-value" th:text="${report.category}">Categoria</div>
+            </div>
+            <div class="cell field" style="width: 12%;">
+                <div class="field-label">Situação</div>
+                <div class="field-value" th:text="${report.status}">Situação</div>
+            </div>
+            <div class="cell field" style="width: 22%;">
+                <div class="field-label">Prazo planejado</div>
+                <div class="field-value" th:text="${report.plannedWindow}">Prazo</div>
+            </div>
+        </div>
+        <div class="row" style="margin-top: 2.5mm;">
+            <div class="cell field" style="width: 34%;">
+                <div class="field-label">Área do terreno</div>
+                <div class="field-value" th:text="${report.landArea}">0 m²</div>
+            </div>
+            <div class="cell field" style="width: 32%;">
+                <div class="field-label">Área construída</div>
+                <div class="field-value" th:text="${report.builtArea}">0 m²</div>
+            </div>
+            <div class="cell field" style="width: 34%;">
+                <div class="field-label">Atrasos</div>
+                <div class="field-value" th:text="${report.lateSummary}">Atrasos</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="band band-kpi">
+        <div class="row">
+            <div class="cell" style="width: 25%;">
+                <div class="kpi">
+                    <div class="kpi-label">Etapas concluídas</div>
+                    <div class="kpi-value" th:text="${report.stagesValue}">0 / 0</div>
+                    <div class="kpi-caption" th:text="${report.stagesCaption}">no período</div>
+                </div>
+            </div>
+            <div class="cell" style="width: 25%;">
+                <div class="kpi">
+                    <div class="kpi-label">Tarefas concluídas</div>
+                    <div class="kpi-value" th:text="${report.tasksValue}">0 / 0</div>
+                    <div class="kpi-caption" th:text="${report.tasksCaption}">no período</div>
+                </div>
+            </div>
+            <div class="cell" style="width: 25%;">
+                <div class="kpi">
+                    <div class="kpi-label">Executado no período</div>
+                    <div class="kpi-value" th:text="${report.executedValue}">R$ 0,00</div>
+                    <div class="kpi-caption" th:text="${report.executedCaption}">acumulado</div>
+                </div>
+            </div>
+            <div class="cell" style="width: 25%;">
+                <div class="kpi kpi-last">
+                    <div class="kpi-label">Desvio médio</div>
+                    <div class="kpi-value" th:text="${report.deviationValue}">0 dias</div>
+                    <div class="kpi-caption" th:text="${report.deviationCaption}">por etapa</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- donut de etapas + orçamento por categoria -->
+    <div class="band band-charts">
+        <div class="row">
+            <div class="cell" style="width: 38mm;">
+                <div class="section-title">Progresso</div>
+                <div class="donut-wrap">
+                    <!-- SVG escrito aqui, e não injetado por th:utext: markup vindo
+                         de string é reprocessado e volta sem a tag de fechamento.
+                         O xmlns é obrigatório, senão o Batik ignora os filhos e o
+                         anel sai em branco, sem erro nenhum. -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"
+                         width="34mm" height="34mm">
+                        <circle cx="64" cy="64" fill="none" stroke="#E4E7EC" stroke-width="16"
+                                th:attr="r=${report.donut.radius}"></circle>
+                        <circle th:if="${report.donut.hasProgress}"
+                                cx="64" cy="64" fill="none" stroke="#1D4ED8" stroke-width="16"
+                                stroke-linecap="butt" transform="rotate(-90 64 64)"
+                                th:attr="r=${report.donut.radius},stroke-dasharray=${report.donut.dashArray}"></circle>
+                    </svg>
+                    <div class="donut-center">
+                        <span class="donut-percent" th:text="${report.donutPercent}">0%</span>
+                    </div>
+                </div>
+                <div class="donut-caption" th:text="${report.donutCaption}">0 de 0 etapas</div>
+            </div>
+
+            <div class="cell">
+                <div class="section-title">Orçamento por categoria — planejado x executado no período</div>
+
+                <!-- Sem orçamento a seção continua no lugar, com os totais
+                     zerados, para o PDF manter sempre o mesmo formato. -->
+                <div th:if="${!report.hasBudget}" class="no-budget">
+                    Sem orçamento cadastrado — planejado <span th:text="${report.plannedTotal}">R$ 0,00</span>,
+                    executado <span th:text="${report.executedTotal}">R$ 0,00</span>.
+                </div>
+
+                <div th:if="${report.hasBudget}">
+                    <div class="cat" th:each="c : ${report.categories}">
+                        <div class="cat-name" th:text="${c.name}">Categoria</div>
+                        <div class="cat-line">
+                            <span class="cat-tag">Planejado</span>
+                            <span class="bar-shell">
+                                <span class="bar bar-planned"
+                                      th:style="'display:block; width:' + ${c.plannedWidth} + '%'"></span>
+                            </span>
+                            <span class="cat-value" th:text="${c.plannedLabel}">R$ 0,00</span>
+                        </div>
+                        <div class="cat-line">
+                            <span class="cat-tag">Executado</span>
+                            <span class="bar-shell">
+                                <span class="bar" th:classappend="${c.exceeded} ? 'bar-exceeded' : 'bar-executed'"
+                                      th:style="'display:block; width:' + ${c.executedWidth} + '%'"></span>
+                            </span>
+                            <span class="cat-value" th:text="${c.executedLabel}">R$ 0,00</span>
+                        </div>
+                    </div>
+                    <div th:if="${#lists.isEmpty(report.categories)}" class="no-budget">
+                        Orçamento sem itens cadastrados — planejado
+                        <span th:text="${report.plannedTotal}">R$ 0,00</span>.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- desvio de dias por etapa -->
+    <div class="band band-deviation">
+        <div class="section-title">Desvio de dias por etapa (acima da linha = adiantamento, abaixo = atraso)</div>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120"
+             width="186mm" height="28mm">
+            <line x1="0" y1="60" x2="520" y2="60" stroke="#98A2B3" stroke-width="1"></line>
+            <rect th:each="b : ${report.deviationBars}"
+                  th:attr="x=${b.x},y=${b.y},width=${b.width},height=${b.height},fill=${b.color}"></rect>
+        </svg>
+        <div class="dev-labels">
+            <div class="dev-label" th:each="s : ${report.stages}" th:text="${s.name}">Etapa</div>
+        </div>
+        <div class="legend">
+            <span class="swatch swatch-late"></span> atraso
+            &#160;&#160;
+            <span class="swatch swatch-ahead"></span> adiantamento
+        </div>
+    </div>
+
+    <!-- tabela de etapas -->
+    <div class="band band-stages">
+        <div class="section-title">Etapas no período</div>
+
+        <!-- A tabela é renderizada SEMPRE, mesmo sem dado nenhum: o relatório
+             precisa sair no mesmo formato para obra vazia, só com os campos em
+             branco, em vez de trocar a estrutura por uma mensagem. -->
+        <table>
+            <thead>
+            <tr>
+                <th style="width: 42%;">Etapa</th>
+                <th style="width: 16%;">Situação</th>
+                <th style="width: 14%;">Fim planejado</th>
+                <th style="width: 14%;">Fim real</th>
+                <th style="width: 14%;" class="num">Desvio</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${report.stages}">
+                <td th:text="${s.name}">Etapa</td>
+                <td th:text="${s.status}">Situação</td>
+                <td th:text="${s.plannedEnd}">--</td>
+                <td th:text="${s.actualEnd}">--</td>
+                <td class="num" th:classappend="${s.late} ? 'late' : ''" th:text="${s.deviation}">0</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(report.stages)}" class="empty-row">
+                <td>Nenhuma etapa com datas no período</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td class="num">—</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="more" th:if="${report.hiddenStagesLabel != null}" th:text="${report.hiddenStagesLabel}">
+            + 0 etapas
+        </div>
+    </div>
+
+    <!-- equipe -->
+    <div class="band band-team">
+        <div class="section-title">Equipe</div>
+        <div>
+            <span class="member" th:each="m : ${report.team}" th:text="${m}">Nome — Papel</span>
+            <span class="member empty-value" th:if="${#lists.isEmpty(report.team)}">—</span>
+        </div>
+        <div class="footer">PRISSMA · Documento gerado automaticamente a partir dos dados da obra.</div>
+    </div>
+
+</div>
+</body>
+</html>

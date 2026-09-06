@@ -69,6 +69,50 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.8.6</version>
 		</dependency>
+
+		<!-- Relatório de obra em PDF: template Thymeleaf -> XHTML -> OpenHTMLtoPDF. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+
+		<!--
+			ATENÇÃO ao groupId: o histórico "com.openhtmltopdf" está abandonado
+			(1.0.10, de 2021, e ainda em PDFBox 2). O fork mantido é
+			"io.github.openhtmltopdf". Os pacotes Java continuam com.openhtmltopdf.*.
+
+			Não declarar openhtmltopdf-core (transitivo) nem fixar pdfbox.version:
+			o Spring Boot não gerencia PDFBox, então a versão pinada aqui (3.0.7)
+			vence. Forçar PDFBox 2.x quebra com NoSuchMethodError em PDType1Font.
+		-->
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-pdfbox</artifactId>
+			<version>1.1.85</version>
+			<exclusions>
+				<!-- PDFBox 3 traz commons-logging, que duplica o pacote
+				     org.apache.commons.logging já fornecido pelo spring-jcl. -->
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>io.github.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-svg-support</artifactId>
+			<version>1.1.85</version>
+			<exclusions>
+				<!-- batik-dom puxa xml-apis, que redeclara org.w3c.dom e org.xml.sax
+				     já presentes no módulo java.xml. NÃO excluir xml-apis-ext: o
+				     Batik precisa de org.w3c.dom.svg de lá. -->
+				<exclusion>
+					<groupId>xml-apis</groupId>
+					<artifactId>xml-apis</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
