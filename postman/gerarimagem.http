@@ -1,0 +1,63 @@
+### Pré-visualização de ambiente com IA
+### Requer uma foto real do ambiente e, opcionalmente, uma planta baixa marcada em azul.
+
+@host = http://localhost:8080
+@jwtToken = COLE_SEU_TOKEN_AQUI
+@workspaceId = 1
+
+### Foto + planta baixa marcada
+POST {{host}}/api/v1/environment-previews
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: multipart/form-data; boundary=genia-boundary
+
+--genia-boundary
+Content-Disposition: form-data; name="rawImage"; filename="sala-atual.jpg"
+Content-Type: image/jpeg
+
+< ./samples/sala-atual.jpg
+--genia-boundary
+Content-Disposition: form-data; name="floorPlan"; filename="planta-sala-marcada.png"
+Content-Type: image/png
+
+< ./samples/planta-sala-marcada.png
+--genia-boundary
+Content-Disposition: form-data; name="options"
+Content-Type: application/json
+
+{
+  "environment": "LIVING_ROOM",
+  "style": "MODERN",
+  "colors": ["OFF_WHITE", "NATURAL_WOOD", "LIGHT_GRAY"],
+  "lighting": "WARM_INDIRECT",
+  "flooring": "LIGHT_PORCELAIN",
+  "generationMode": "PREVIEW",
+  "additionalInstructions": "Adicionar painel ripado atrás da televisão"
+}
+--genia-boundary--
+
+### Somente foto
+POST {{host}}/api/v1/environment-previews
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: multipart/form-data; boundary=photo-only-boundary
+
+--photo-only-boundary
+Content-Disposition: form-data; name="rawImage"; filename="quarto-atual.webp"
+Content-Type: image/webp
+
+< ./samples/quarto-atual.webp
+--photo-only-boundary
+Content-Disposition: form-data; name="options"
+Content-Type: application/json
+
+{
+  "environment": "BEDROOM",
+  "style": "MINIMALIST",
+  "colors": ["WHITE", "BEIGE", "NATURAL_WOOD"],
+  "lighting": "NATURAL",
+  "flooring": "LAMINATE",
+  "generationMode": "PREVIEW",
+  "additionalInstructions": "Manter a janela e criar armário planejado"
+}
+--photo-only-boundary--
