@@ -1,8 +1,8 @@
 package br.pucpr.prissma_server.attachments;
 
 import br.pucpr.prissma_server.attachments.storage.FileStorageService;
-import br.pucpr.prissma_server.attachments.storage.StorageProperties;
 import br.pucpr.prissma_server.attachments.storage.StoredFile;
+import br.pucpr.prissma_server.attachments.storage.UploadedFileValidator;
 import br.pucpr.prissma_server.projects.ConstructionProject;
 import br.pucpr.prissma_server.projects.ConstructionProjectRepository;
 import br.pucpr.prissma_server.projects.ProjectPermission;
@@ -27,27 +27,12 @@ import java.util.List;
 @Service
 public class AttachmentService {
 
-    private static final String DOCX_CONTENT_TYPE =
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-    private static final byte[] PDF_MAGIC = {0x25, 0x50, 0x44, 0x46};
-    private static final byte[] PNG_MAGIC = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-    private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
-    private static final byte[] GIF87_MAGIC = {0x47, 0x49, 0x46, 0x38, 0x37, 0x61};
-    private static final byte[] GIF89_MAGIC = {0x47, 0x49, 0x46, 0x38, 0x39, 0x61};
-    private static final byte[] BMP_MAGIC = {0x42, 0x4D};
-    private static final byte[] TIFF_LE_MAGIC = {0x49, 0x49, 0x2A, 0x00};
-    private static final byte[] TIFF_BE_MAGIC = {0x4D, 0x4D, 0x00, 0x2A};
-    private static final byte[] WEBP_RIFF_MAGIC = {0x52, 0x49, 0x46, 0x46};
-    private static final byte[] WEBP_FORMAT_TAG = {0x57, 0x45, 0x42, 0x50};
-    private static final byte[] ZIP_MAGIC = {0x50, 0x4B, 0x03, 0x04};
-
     private final AttachmentRepository repository;
     private final ConstructionProjectRepository projectRepository;
     private final ProjectPermissionService permissionService;
     private final UserRepository userRepository;
     private final FileStorageService storage;
-    private final StorageProperties storageProperties;
+    private final UploadedFileValidator validator;
     private final EntityManager entityManager;
 
     public AttachmentService(AttachmentRepository repository,
@@ -55,14 +40,14 @@ public class AttachmentService {
                              ProjectPermissionService permissionService,
                              UserRepository userRepository,
                              FileStorageService storage,
-                             StorageProperties storageProperties,
+                             UploadedFileValidator validator,
                              EntityManager entityManager) {
         this.repository = repository;
         this.projectRepository = projectRepository;
         this.permissionService = permissionService;
         this.userRepository = userRepository;
         this.storage = storage;
-        this.storageProperties = storageProperties;
+        this.validator = validator;
         this.entityManager = entityManager;
     }
 
@@ -93,16 +78,16 @@ public class AttachmentService {
             stage = task.getStage();
         }
 
-        String contentType = normalizeContentType(file.getContentType());
-        validateContentType(contentType);
-        validateSize(file.getSize());
+        String contentType = validator.normalizeContentType(file.getContentType());
+        validator.validateContentType(contentType);
+        validator.validateSize(file.getSize());
 
-        String originalName = sanitizeFileName(file.getOriginalFilename());
-        String extension = resolveExtension(contentType);
+        String originalName = validator.sanitizeFileName(file.getOriginalFilename());
+        String extension = validator.resolveExtension(contentType);
 
         StoredFile stored;
         try (InputStream in = file.getInputStream()) {
-            verifyMagicBytes(in, contentType);
+            validator.verifyMagicBytes(in, contentType);
             try (InputStream payload = file.getInputStream()) {
                 stored = storage.store(payload, extension, "projects/" + project.getId());
             }
@@ -218,98 +203,6 @@ public class AttachmentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found in this project");
         }
         return task;
-    }
-
-    private void validateContentType(String contentType) {
-        if (contentType == null
-                || !storageProperties.getLimits().getAllowedContentTypes().contains(contentType)) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                    "Unsupported file type. Allowed: "
-                            + storageProperties.getLimits().getAllowedContentTypes());
-        }
-    }
-
-    private void validateSize(long size) {
-        long max = storageProperties.getLimits().getMaxFileSizeBytes();
-        if (size > max) {
-            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
-                    "Arquivo excede o tamanho máximo permitido de " + max + " bytes");
-        }
-    }
-
-    private void verifyMagicBytes(InputStream in, String contentType) throws IOException {
-        int needed = switch (contentType) {
-            case "image/webp" -> 12;
-            case "image/png" -> 8;
-            case "image/gif" -> 6;
-            case "application/pdf", "image/tiff", DOCX_CONTENT_TYPE -> 4;
-            case "image/jpeg" -> 3;
-            case "image/bmp" -> 2;
-            default -> 0;
-        };
-        if (needed == 0) return;
-
-        byte[] header = in.readNBytes(needed);
-        if (header.length < needed || !matchesSignature(header, contentType)) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                    "File content does not match declared type");
-        }
-    }
-
-    private boolean matchesSignature(byte[] header, String contentType) {
-        return switch (contentType) {
-            case "application/pdf" -> startsWith(header, PDF_MAGIC);
-            case "image/png" -> startsWith(header, PNG_MAGIC);
-            case "image/jpeg" -> startsWith(header, JPEG_MAGIC);
-            case "image/gif" -> startsWith(header, GIF87_MAGIC) || startsWith(header, GIF89_MAGIC);
-            case "image/bmp" -> startsWith(header, BMP_MAGIC);
-            case "image/tiff" -> startsWith(header, TIFF_LE_MAGIC) || startsWith(header, TIFF_BE_MAGIC);
-            case "image/webp" -> startsWith(header, WEBP_RIFF_MAGIC) && regionEquals(header, 8, WEBP_FORMAT_TAG);
-            case DOCX_CONTENT_TYPE -> startsWith(header, ZIP_MAGIC);
-            default -> true;
-        };
-    }
-
-    private boolean startsWith(byte[] header, byte[] expected) {
-        return regionEquals(header, 0, expected);
-    }
-
-    private boolean regionEquals(byte[] header, int offset, byte[] expected) {
-        if (header.length < offset + expected.length) return false;
-        for (int i = 0; i < expected.length; i++) {
-            if (header[offset + i] != expected[i]) return false;
-        }
-        return true;
-    }
-
-    private String normalizeContentType(String raw) {
-        if (raw == null) return null;
-        int semi = raw.indexOf(';');
-        return (semi >= 0 ? raw.substring(0, semi) : raw).trim().toLowerCase();
-    }
-
-    private String resolveExtension(String contentType) {
-        return switch (contentType) {
-            case "application/pdf" -> "pdf";
-            case "image/png" -> "png";
-            case "image/jpeg" -> "jpg";
-            case "image/gif" -> "gif";
-            case "image/bmp" -> "bmp";
-            case "image/tiff" -> "tiff";
-            case "image/webp" -> "webp";
-            case DOCX_CONTENT_TYPE -> "docx";
-            default -> "bin";
-        };
-    }
-
-    private String sanitizeFileName(String name) {
-        if (name == null || name.isBlank()) return "file";
-        String base = name.replace("\\", "/");
-        int slash = base.lastIndexOf('/');
-        if (slash >= 0) base = base.substring(slash + 1);
-        base = base.replaceAll("[\\r\\n\\t]", "_");
-        if (base.length() > 255) base = base.substring(0, 255);
-        return base;
     }
 
     private void safeDelete(String storageKey) {

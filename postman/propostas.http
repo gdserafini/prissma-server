@@ -1,0 +1,135 @@
+### Propostas / Design & IA
+###
+### Fluxo completo: cria a proposta (nasce com a v1 em rascunho), dispara a
+### prévia por IA (202), consulta o status até READY e baixa a imagem da versão
+### que o job criou.
+###
+### ARQUIVOS: o `<` lê o arquivo relativo a ESTE .http, ou seja `postman/samples/`.
+###
+### O servidor precisa de OPENAI_API_KEY no ambiente. Sem ela a prévia não falha
+### na hora: ela é gravada, o job roda e a prévia termina em FAILED com
+### "A integração de imagens está sem OPENAI_API_KEY configurada" no errorMessage.
+
+@host = http://localhost:8080
+@jwtToken = COLE_AQUI_UM_TOKEN_VALIDO
+@workspaceId = 1
+@projectId = 1
+@proposalId = 1
+@versionId = 1
+@previewId = 1
+
+### 1. Criar proposta (multipart: a parte `proposal` é JSON, o arquivo é opcional)
+POST {{host}}/projects/{{projectId}}/proposals
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: multipart/form-data; boundary=proposta-boundary
+
+--proposta-boundary
+Content-Disposition: form-data; name="proposal"
+Content-Type: application/json
+
+{
+  "title": "Sala de estar",
+  "description": "Painel ripado atrás da TV",
+  "environmentType": "LIVING_ROOM"
+}
+--proposta-boundary--
+
+### 2. Listar propostas da obra (o que a grade de cards consome)
+GET {{host}}/projects/{{projectId}}/proposals
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+
+### 3. Detalhe com o histórico de versões
+GET {{host}}/projects/{{projectId}}/proposals/{{proposalId}}
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+
+### 4. Disparar a prévia por IA -> 202 com { id, status: "PROCESSING" }
+POST {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/previews
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: multipart/form-data; boundary=previa-boundary
+
+--previa-boundary
+Content-Disposition: form-data; name="rawImage"; filename="sala-atual.jpg"
+Content-Type: image/jpeg
+
+< ./samples/sala-atual.jpg
+--previa-boundary
+Content-Disposition: form-data; name="options"
+Content-Type: application/json
+
+{
+  "environment": "LIVING_ROOM",
+  "style": "MODERN",
+  "colors": ["OFF_WHITE", "NATURAL_WOOD", "LIGHT_GRAY"],
+  "lighting": "WARM_INDIRECT",
+  "flooring": "LIGHT_PORCELAIN",
+  "generationMode": "PREVIEW",
+  "additionalInstructions": "Adicionar painel ripado atrás da televisão"
+}
+--previa-boundary--
+
+### 5. Status da prévia (é isto que a tela consulta em polling, de 3 em 3s)
+### PROCESSING -> continua; READY -> versionId preenchido; FAILED -> errorMessage
+GET {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/previews/{{previewId}}
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+
+### 6. Imagem da versão (PNG inline — é o src do thumbnail do card)
+GET {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/versions/{{versionId}}/image
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+
+### 7. Subir uma versão à mão, sem IA
+POST {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/versions?description=Ajuste%20do%20painel
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: multipart/form-data; boundary=versao-boundary
+
+--versao-boundary
+Content-Disposition: form-data; name="file"; filename="planta.png"
+Content-Type: image/png
+
+< ./samples/sala-atual.jpg
+--versao-boundary--
+
+### 8. Aprovar a versão (grava o parecer em design_approvals)
+PATCH {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/versions/{{versionId}}/status
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: application/json
+
+{
+  "status": "APPROVED",
+  "comment": "Liberado para execução"
+}
+
+### 9. Pedir ajustes
+PATCH {{host}}/projects/{{projectId}}/proposals/{{proposalId}}/versions/{{versionId}}/status
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: application/json
+
+{
+  "status": "REJECTED",
+  "comment": "Revisar a iluminação da bancada"
+}
+
+### 10. Editar título/descrição/etapa da proposta
+PATCH {{host}}/projects/{{projectId}}/proposals/{{proposalId}}
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}
+Content-Type: application/json
+
+{
+  "title": "Sala de estar - revisão",
+  "description": "Painel ripado e iluminação indireta",
+  "environmentType": "LIVING_ROOM"
+}
+
+### 11. Excluir a proposta (leva versões, prévias e arquivos junto)
+DELETE {{host}}/projects/{{projectId}}/proposals/{{proposalId}}
+Authorization: Bearer {{jwtToken}}
+X-Workspace-Id: {{workspaceId}}

@@ -36,3 +36,10 @@ build/
 
 ### Local storage ###
 var/
+
+### Segredos locais ###
+# O .env guarda OPENAI_API_KEY e nunca deve ser versionado.
+# O que entra no repositorio e o .env.example, sem valor nenhum.
+.env
+.env.local
+!.env.example

@@ -138,6 +138,18 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!--
+			Le o .env da raiz e expoe as chaves como propriedades do Spring, para
+			que ${OPENAI_API_KEY} do application.yaml resolva. Sem isto o Spring
+			so enxerga variaveis de ambiente de verdade, e cada dev teria de
+			configurar a chave na mao no run configuration da IDE.
+			Ausencia do arquivo nao quebra nada: o placeholder cai no default.
+		-->
+		<dependency>
+			<groupId>me.paulschwarz</groupId>
+			<artifactId>spring-dotenv</artifactId>
+			<version>4.0.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
