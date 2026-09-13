@@ -25,4 +25,15 @@ public interface DesignSubmissionRepository extends JpaRepository<DesignSubmissi
 
     @Query("SELECT COALESCE(MAX(s.version), 0) FROM DesignSubmission s WHERE s.proposal.id = :proposalId")
     int findMaxVersion(@Param("proposalId") Long proposalId);
+
+    /**
+     * Só as chaves dos arquivos, sem materializar as versões.
+     *
+     * É o que a exclusão da proposta precisa: carregar as entidades deixaria
+     * filhas gerenciadas apontando para uma proposta que o {@code remove} acabou
+     * de marcar, e o flush quebra com TransientObjectException.
+     */
+    @Query("SELECT s.fileUrl FROM DesignSubmission s "
+            + "WHERE s.proposal.id = :proposalId AND s.fileUrl IS NOT NULL")
+    List<String> findFileUrlsByProposal(@Param("proposalId") Long proposalId);
 }

@@ -47,6 +47,9 @@ class DesignProposalServiceTest {
     private DesignApprovalRepository approvalRepository;
 
     @Mock
+    private EnvironmentPreviewRepository previewRepository;
+
+    @Mock
     private ConstructionProjectRepository projectRepository;
 
     @Mock
@@ -279,19 +282,37 @@ class DesignProposalServiceTest {
     }
 
     @Test
-    @DisplayName("delete apaga os arquivos das versoes antes de derrubar a proposta")
+    @DisplayName("delete apaga os arquivos das versoes e das previas junto com a proposta")
     void deleteApagaArquivos() {
-        DesignSubmission v1 = versao(101L, 1, ProposalStatus.DRAFT, "proposals/10/a.png");
-        DesignSubmission v2 = versao(102L, 2, ProposalStatus.DRAFT, null);
         when(proposalRepository.findById(PROPOSAL_ID)).thenReturn(Optional.of(proposta));
-        when(submissionRepository.findAllByProposalOrderByVersionDesc(PROPOSAL_ID))
-                .thenReturn(List.of(v2, v1));
+        when(submissionRepository.findFileUrlsByProposal(PROPOSAL_ID))
+                .thenReturn(List.of("proposals/10/a.png"));
+        when(previewRepository.findRawImageKeysByProposal(PROPOSAL_ID))
+                .thenReturn(List.of("proposals/10/foto.jpg"));
+        when(previewRepository.findFloorPlanKeysByProposal(PROPOSAL_ID))
+                .thenReturn(List.of("proposals/10/planta.png"));
 
         service.delete(PROJECT_ID, PROPOSAL_ID, USER_ID);
 
         verify(storage).delete("proposals/10/a.png");
-        verify(storage, never()).delete(null);
+        verify(storage).delete("proposals/10/foto.jpg");
+        verify(storage).delete("proposals/10/planta.png");
         verify(proposalRepository).delete(proposta);
+    }
+
+    /**
+     * A regressao do 500 no DELETE: carregar as versoes como entidades deixava
+     * filhas gerenciadas apontando para a proposta removida, e o flush do commit
+     * estourava TransientObjectException. O delete nao pode materializa-las.
+     */
+    @Test
+    @DisplayName("delete nao materializa as versoes da proposta")
+    void deleteNaoCarregaVersoes() {
+        when(proposalRepository.findById(PROPOSAL_ID)).thenReturn(Optional.of(proposta));
+
+        service.delete(PROJECT_ID, PROPOSAL_ID, USER_ID);
+
+        verify(submissionRepository, never()).findAllByProposalOrderByVersionDesc(anyLong());
     }
 
     @Test

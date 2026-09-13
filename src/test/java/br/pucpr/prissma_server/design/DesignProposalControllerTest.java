@@ -13,6 +13,7 @@ import br.pucpr.prissma_server.workspaces.WorkspaceMember;
 import br.pucpr.prissma_server.workspaces.WorkspaceMemberRepository;
 import br.pucpr.prissma_server.workspaces.WorkspaceRepository;
 import br.pucpr.prissma_server.workspaces.WorkspaceRole;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ public class DesignProposalControllerTest {
 
     @Autowired
     private WorkspaceMemberRepository workspaceMemberRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private User arquiteto;
     private User cliente;
@@ -346,6 +350,11 @@ public class DesignProposalControllerTest {
         mockMvc.perform(delete("/projects/" + project.getId() + "/proposals/" + proposalId)
                         .with(auth(arquiteto)))
                 .andExpect(status().isNoContent());
+
+        // O 500 do DELETE so aparecia no flush do commit, que o @Transactional do
+        // teste nunca chega a executar: sem este flush explicito a suite passava
+        // com o servidor quebrado em producao.
+        entityManager.flush();
 
         mockMvc.perform(get("/projects/" + project.getId() + "/proposals/" + proposalId)
                         .with(auth(arquiteto)))

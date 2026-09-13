@@ -47,6 +47,7 @@ public class DesignProposalService {
     private final DesignProposalRepository proposalRepository;
     private final DesignSubmissionRepository submissionRepository;
     private final DesignApprovalRepository approvalRepository;
+    private final EnvironmentPreviewRepository previewRepository;
     private final ConstructionProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final ProjectPermissionService permissionService;
@@ -57,6 +58,7 @@ public class DesignProposalService {
     public DesignProposalService(DesignProposalRepository proposalRepository,
                                  DesignSubmissionRepository submissionRepository,
                                  DesignApprovalRepository approvalRepository,
+                                 EnvironmentPreviewRepository previewRepository,
                                  ConstructionProjectRepository projectRepository,
                                  UserRepository userRepository,
                                  ProjectPermissionService permissionService,
@@ -66,6 +68,7 @@ public class DesignProposalService {
         this.proposalRepository = proposalRepository;
         this.submissionRepository = submissionRepository;
         this.approvalRepository = approvalRepository;
+        this.previewRepository = previewRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.permissionService = permissionService;
@@ -185,11 +188,22 @@ public class DesignProposalService {
         DesignProposal proposal = requireProposalScopedToProject(projectId, proposalId);
         permissionService.requirePermission(projectId, userId, ProjectPermission.MANAGE_PROPOSALS);
 
-        // As linhas somem por CASCADE; os arquivos não têm quem os apague depois.
-        for (DesignSubmission version : submissionRepository.findAllByProposalOrderByVersionDesc(proposalId)) {
-            safeDelete(version.getFileUrl());
-        }
+        // As linhas somem por CASCADE; os arquivos não têm quem os apague depois —
+        // tanto os das versões quanto as imagens de entrada das prévias, que nunca
+        // viraram attachments da obra.
+        //
+        // As chaves vêm por projeção, e não pelas entidades: uma versão carregada
+        // continua gerenciada apontando para a proposta que o delete abaixo marca
+        // para remoção, e o flush do commit morre com TransientObjectException.
+        List<String> keys = new ArrayList<>(submissionRepository.findFileUrlsByProposal(proposalId));
+        keys.addAll(previewRepository.findRawImageKeysByProposal(proposalId));
+        keys.addAll(previewRepository.findFloorPlanKeysByProposal(proposalId));
+
         proposalRepository.delete(proposal);
+
+        // Depois do delete: se ele falhar, a transação volta atrás e os arquivos
+        // ainda precisam existir.
+        keys.forEach(this::safeDelete);
     }
 
     @Transactional
