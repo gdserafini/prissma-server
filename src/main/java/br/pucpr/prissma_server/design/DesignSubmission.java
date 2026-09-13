@@ -1,14 +1,20 @@
 package br.pucpr.prissma_server.design;
 
-import br.pucpr.prissma_server.stage.Stage;
 import br.pucpr.prissma_server.users.User;
 import jakarta.persistence.*;
 
 import java.time.Instant;
 
+/**
+ * Uma versão da proposta — o v1/v2/v3 que a tela mostra em mono.
+ *
+ * A tabela é a {@code design_submissions} da V4, reaproveitada: ela já tinha
+ * versão, descrição, status e arquivo, que é exatamente o que uma versão é. O
+ * que a V17 mudou foi o dono (era a etapa, agora é a proposta).
+ */
 @Entity
 @Table(name = "design_submissions", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"stage_id", "version"})
+        @UniqueConstraint(columnNames = {"proposal_id", "version"})
 })
 public class DesignSubmission {
 
@@ -17,30 +23,47 @@ public class DesignSubmission {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "stage_id", nullable = false)
-    private Stage stage;
+    @JoinColumn(name = "proposal_id", nullable = false)
+    private DesignProposal proposal;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_user_id", nullable = false)
+    @JoinColumn(name = "author_user_id")
     private User authorUser;
 
-    @Column(nullable = false)
-    private String title;
+    @Column(name = "author_name", nullable = false)
+    private String authorName;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false, length = 50)
-    private String version;
+    @Column(nullable = false)
+    private int version;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private String status = "PENDING_REVIEW";
+    private ProposalStatus status = ProposalStatus.DRAFT;
 
-    @Column(name = "file_url", nullable = false, columnDefinition = "TEXT")
+    /**
+     * Chave do arquivo no {@code FileStorageService} — não é URL pública. Nula
+     * enquanto a versão não tem imagem.
+     */
+    @Column(name = "file_url", columnDefinition = "TEXT")
     private String fileUrl;
+
+    @Column(name = "file_name")
+    private String fileName;
+
+    @Column(name = "file_type", length = 100)
+    private String fileType;
+
+    @Column(name = "generated_by_ai", nullable = false)
+    private boolean generatedByAi;
 
     @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     public DesignSubmission() {
     }
@@ -49,12 +72,16 @@ public class DesignSubmission {
         return id;
     }
 
-    public Stage getStage() {
-        return stage;
+    public void setId(Long id) {
+        this.id = id;
     }
 
-    public void setStage(Stage stage) {
-        this.stage = stage;
+    public DesignProposal getProposal() {
+        return proposal;
+    }
+
+    public void setProposal(DesignProposal proposal) {
+        this.proposal = proposal;
     }
 
     public User getAuthorUser() {
@@ -65,12 +92,12 @@ public class DesignSubmission {
         this.authorUser = authorUser;
     }
 
-    public String getTitle() {
-        return title;
+    public String getAuthorName() {
+        return authorName;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
     }
 
     public String getDescription() {
@@ -81,19 +108,19 @@ public class DesignSubmission {
         this.description = description;
     }
 
-    public String getVersion() {
+    public int getVersion() {
         return version;
     }
 
-    public void setVersion(String version) {
+    public void setVersion(int version) {
         this.version = version;
     }
 
-    public String getStatus() {
+    public ProposalStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(ProposalStatus status) {
         this.status = status;
     }
 
@@ -105,6 +132,30 @@ public class DesignSubmission {
         this.fileUrl = fileUrl;
     }
 
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getFileType() {
+        return fileType;
+    }
+
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
+
+    public boolean isGeneratedByAi() {
+        return generatedByAi;
+    }
+
+    public void setGeneratedByAi(boolean generatedByAi) {
+        this.generatedByAi = generatedByAi;
+    }
+
     public Instant getSubmittedAt() {
         return submittedAt;
     }
@@ -112,5 +163,12 @@ public class DesignSubmission {
     public void setSubmittedAt(Instant submittedAt) {
         this.submittedAt = submittedAt;
     }
-}
 
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+}

@@ -21,6 +21,11 @@ services:
     build: .
     ports:
       - "8080:8080"
+    # O container nao enxerga o .env da raiz sozinho. Sem isto a OPENAI_API_KEY
+    # chega vazia e so a geracao de imagens falha — o app sobe normalmente, o
+    # que torna o problema silencioso ate alguem clicar em "Previa visual IA".
+    env_file:
+      - .env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/prissma
       SPRING_DATASOURCE_USERNAME: prissma

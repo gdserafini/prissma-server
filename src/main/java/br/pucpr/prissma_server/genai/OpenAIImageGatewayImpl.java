@@ -6,10 +6,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -32,18 +30,18 @@ public class OpenAIImageGatewayImpl implements OpenAIImageGateway {
     }
 
     @Override
-    public byte[] edit(MultipartFile rawImage,
-                       MultipartFile floorPlan,
+    public byte[] edit(ImageBytes rawImage,
+                       ImageBytes floorPlan,
                        String prompt,
-                       EnvironmentPreviewRequest.GenerationMode generationMode) throws IOException {
+                       EnvironmentPreviewRequest.GenerationMode generationMode) {
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
-            throw new ResponseStatusException(PAYLOAD_TOO_LARGE,
+            throw new ResponseStatusException(SERVICE_UNAVAILABLE,
                     "A integração de imagens está sem OPENAI_API_KEY configurada");
         }
 
         List<Map<String, String>> images = new ArrayList<>();
         images.add(Map.of("image_url", asDataUrl(rawImage)));
-        if (floorPlan != null && !floorPlan.isEmpty()) {
+        if (floorPlan != null) {
             images.add(Map.of("image_url", asDataUrl(floorPlan)));
         }
 
@@ -78,13 +76,13 @@ public class OpenAIImageGatewayImpl implements OpenAIImageGateway {
         }
     }
 
-    private String asDataUrl(MultipartFile file) throws IOException {
-        if (file.getSize() > properties.getMaxInputBytes()) {
-            throw new ResponseStatusException(SERVICE_UNAVAILABLE,
+    private String asDataUrl(ImageBytes image) {
+        if (image.size() > properties.getMaxInputBytes()) {
+            throw new ResponseStatusException(PAYLOAD_TOO_LARGE,
                     "Cada imagem deve ter no máximo " + properties.getMaxInputBytes() / (1024 * 1024) + " MB");
         }
-        String contentType = file.getContentType() == null ? "application/octet-stream" : file.getContentType();
-        return "data:" + contentType + ";base64," + Base64.getEncoder().encodeToString(file.getBytes());
+        return "data:" + image.contentType() + ";base64,"
+                + Base64.getEncoder().encodeToString(image.content());
     }
 
     private record ImageEditResponse(List<ImageData> data) { }

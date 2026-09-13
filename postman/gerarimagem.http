@@ -1,11 +1,19 @@
 ### Pré-visualização de ambiente com IA
 ### Requer uma foto real do ambiente e, opcionalmente, uma planta baixa marcada em azul.
+###
+### ARQUIVOS: o `<` lê o arquivo relativo a ESTE .http, ou seja `postman/samples/`.
+### Hoje a pasta tem só `sala-atual.jpg` — a requisição "Somente foto" abaixo roda
+### com ela. Para a primeira requisição, coloque também uma planta baixa em
+### `postman/samples/planta-sala-marcada.png` (a região do ambiente marcada em azul).
+###
+### O servidor precisa de OPENAI_API_KEY no ambiente; sem ela a resposta é
+### 503 com "A integração de imagens está sem OPENAI_API_KEY configurada".
 
 @host = http://localhost:8080
-@jwtToken = COLE_SEU_TOKEN_AQUI
+@jwtToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJ2aW5penpseTIwMDVAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3ODg5OTY0MDgsImV4cCI6MTc4OTA4MjgwOCwid29ya3NwYWNlSWQiOjEsIndvcmtzcGFjZVJvbGUiOiJPV05FUiIsImlzT3duZXIiOnRydWV9.BtJAEyClRLaduHJ6jnbj-0iZ6GhLushp84JV1Qmlv8E
 @workspaceId = 1
 
-### Foto + planta baixa marcada
+### Foto + planta baixa marcada  (precisa de samples/planta-sala-marcada.png)
 POST {{host}}/api/v1/environment-previews
 Authorization: Bearer {{jwtToken}}
 X-Workspace-Id: {{workspaceId}}
@@ -36,28 +44,28 @@ Content-Type: application/json
 }
 --genia-boundary--
 
-### Somente foto
+### Somente foto  (roda com o que já está em samples/)
 POST {{host}}/api/v1/environment-previews
 Authorization: Bearer {{jwtToken}}
 X-Workspace-Id: {{workspaceId}}
 Content-Type: multipart/form-data; boundary=photo-only-boundary
 
 --photo-only-boundary
-Content-Disposition: form-data; name="rawImage"; filename="quarto-atual.webp"
-Content-Type: image/webp
+Content-Disposition: form-data; name="rawImage"; filename="sala-atual.jpg"
+Content-Type: image/jpeg
 
-< ./samples/quarto-atual.webp
+< ./samples/sala-atual.jpg
 --photo-only-boundary
 Content-Disposition: form-data; name="options"
 Content-Type: application/json
 
 {
-  "environment": "BEDROOM",
-  "style": "MINIMALIST",
-  "colors": ["WHITE", "BEIGE", "NATURAL_WOOD"],
-  "lighting": "NATURAL",
-  "flooring": "LAMINATE",
+  "environment": "LIVING_ROOM",
+  "style": "INDUSTRIAL",
+  "colors": ["WHITE", "BLUE", "NATURAL_WOOD"],
+  "lighting": "WARM_INDIRECT",
+  "flooring": "DARK_PORCELAIN",
   "generationMode": "PREVIEW",
-  "additionalInstructions": "Manter a janela e criar armário planejado"
+  "additionalInstructions": "Armário Ripado na TV"
 }
 --photo-only-boundary--

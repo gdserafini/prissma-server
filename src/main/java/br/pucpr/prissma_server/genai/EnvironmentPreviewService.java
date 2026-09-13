@@ -1,9 +1,9 @@
 package br.pucpr.prissma_server.genai;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Set;
@@ -30,16 +30,25 @@ public class EnvironmentPreviewService {
         validateImage(rawImage, "rawImage", true);
         validateImage(floorPlan, "floorPlan", false);
 
-        boolean hasFloorPlan = floorPlan != null && !floorPlan.isEmpty();
-        EnvironmentPreviewPromptStrategy strategy = strategyFactory.forFloorPlan(hasFloorPlan);
-        String prompt = strategy.generate(new EnvironmentPreviewPromptContext(request, hasFloorPlan));
-
         try {
-            return imageGateway.edit(rawImage, floorPlan, prompt, request.generationMode());
+            return generate(ImageBytes.from(rawImage), ImageBytes.from(floorPlan), request);
         } catch (IOException ex) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Não foi possível ler a imagem enviada", ex);
         }
+    }
+
+    /**
+     * Entrada usada pelo job assíncrono das propostas, que já tem os bytes em mãos
+     * e nenhum {@code MultipartFile} para oferecer.
+     */
+    public byte[] generate(ImageBytes rawImage,
+                           ImageBytes floorPlan,
+                           EnvironmentPreviewRequest request) {
+        boolean hasFloorPlan = floorPlan != null;
+        EnvironmentPreviewPromptStrategy strategy = strategyFactory.forFloorPlan(hasFloorPlan);
+        String prompt = strategy.generate(new EnvironmentPreviewPromptContext(request, hasFloorPlan));
+        return imageGateway.edit(rawImage, floorPlan, prompt, request.generationMode());
     }
 
     private void validateImage(MultipartFile file, String field, boolean required) {

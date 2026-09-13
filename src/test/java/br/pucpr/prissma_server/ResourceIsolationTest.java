@@ -209,6 +209,26 @@ public class ResourceIsolationTest {
     }
 
     @Test
+    @DisplayName("GET /projects/{id}/proposals is denied to a non-member")
+    void listProposalsDenied() throws Exception {
+        mockMvc.perform(get("/projects/" + project.getId() + "/proposals").with(auth(outsider)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("POST /projects/{id}/proposals is denied to a non-member")
+    void createProposalDenied() throws Exception {
+        var proposta = new org.springframework.mock.web.MockMultipartFile(
+                "proposal", "", MediaType.APPLICATION_JSON_VALUE,
+                ("{\"title\":\"Sala de estar\",\"environmentType\":\"LIVING_ROOM\"}").getBytes());
+
+        mockMvc.perform(multipart("/projects/" + project.getId() + "/proposals")
+                        .file(proposta)
+                        .with(auth(outsider)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("Cross-workspace: outsider WITH their own workspace still gets 404")
     void crossWorkspaceOutsiderWithOwnWorkspaceGets404() throws Exception {
         // O caso forte: B tem construtora própria (contexto válido) e mesmo
