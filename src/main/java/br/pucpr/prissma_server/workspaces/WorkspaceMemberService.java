@@ -54,6 +54,7 @@ public class WorkspaceMemberService {
                                   UserValidator userValidator,
                                   PasswordEncoder passwordEncoder,
                                   ApplicationEventPublisher eventPublisher,
+                                  NotificationService notificationService,
                                   @Value("${security.password-reset.frontend-url}") String frontendUrl) {
         this.workspaceRepository = workspaceRepository;
         this.memberRepository = memberRepository;
