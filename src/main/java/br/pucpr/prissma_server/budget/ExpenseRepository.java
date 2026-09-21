@@ -11,6 +11,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     List<Expense> findByBudgetItemIdOrderBySpentAtDesc(Long budgetItemId);
 
+    List<Expense> findByBudgetItemIdOrderBySpentAtAscIdAsc(Long budgetItemId);
+
     @Query("SELECT e FROM Expense e WHERE e.budgetItem.projectBudget.id = :budgetId ORDER BY e.spentAt DESC")
     List<Expense> findByProjectBudgetId(@Param("budgetId") Long budgetId);
 

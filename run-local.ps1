@@ -23,9 +23,9 @@ $env:JAVA_HOME = $javaHome
 $env:Path = (Join-Path $javaHome 'bin') + ';' + $env:Path
 
 $javaExe = Join-Path $javaHome 'bin\java.exe'
-$javaVersionOutput = cmd.exe /c "\"$javaExe\" -version 2>&1"
+$javaVersionOutput = (& $javaExe -version 2>&1 | Out-String)
 if ($javaVersionOutput -notmatch 'version "2[1-9]') {
-    throw "O Java encontrado em '$javaHome' não é 21+. Saída: $($javaVersionOutput -join ' ')"
+    throw "O Java encontrado em '$javaHome' não é 21+. Saída: $($javaVersionOutput)"
 }
 
 $settingsPath = 'C:\Users\GFURQUI\.m2\settings.xml'
@@ -44,6 +44,7 @@ if ($cachedMaven) {
 
 $stdoutLog = Join-Path $logsDir 'run-local.log'
 $stderrLog = Join-Path $logsDir 'run-local-err.log'
+Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
 
 $mavenArgs = @()
 if (Test-Path $settingsPath) {
