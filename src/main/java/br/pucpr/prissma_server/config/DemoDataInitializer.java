@@ -81,7 +81,7 @@ public class DemoDataInitializer implements ApplicationRunner {
             return;
         }
 
-        User admin = ensureUser("Admin", "admin", "admin", Role.ADMIN);
+        User admin = ensureUser("Admin", "admin@admin.com", "adminadmin", Role.ADMIN);
         User joao = ensureUser("João Almeida", "joao@prissma.com", "123456", Role.ENG);
         User maria = ensureUser("Maria Souza", "maria@prissma.com", "123456", Role.ARQ);
         User pedro = ensureUser("Pedro Lima", "pedro@prissma.com", "123456", Role.USER);
