@@ -1,5 +1,7 @@
 package br.pucpr.prissma_server.workspaces;
 
+import br.pucpr.prissma_server.notifications.NotificationService;
+import br.pucpr.prissma_server.notifications.NotificationType;
 import br.pucpr.prissma_server.users.Role;
 import br.pucpr.prissma_server.users.User;
 import br.pucpr.prissma_server.users.UserRepository;
@@ -25,7 +27,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,6 +65,9 @@ class WorkspaceMemberServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private NotificationService notificationService;
+
     private WorkspaceMemberService service;
 
     private Workspace workspace;
@@ -71,7 +75,8 @@ class WorkspaceMemberServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         service = new WorkspaceMemberService(workspaceRepository, memberRepository, inviteRepository,
-                userRepository, userValidator, passwordEncoder, eventPublisher, "http://localhost:3000");
+                userRepository, userValidator, passwordEncoder, eventPublisher, notificationService,
+                "http://localhost:3000");
 
         workspace = new Workspace();
         var idField = Workspace.class.getDeclaredField("id");
@@ -152,7 +157,7 @@ class WorkspaceMemberServiceTest {
         ArgumentCaptor<MemberInvite> saved = ArgumentCaptor.forClass(MemberInvite.class);
         verify(inviteRepository).save(saved.capture());
         assertEquals("nova@obra.com", saved.getValue().getInvitedEmail());
-        assertEquals(64, saved.getValue().getTokenHash().length()); // sha256 hex, nunca o token em claro
+        assertEquals(64, saved.getValue().getTokenHash().length());
 
         ArgumentCaptor<Object> event = ArgumentCaptor.forClass(Object.class);
         verify(eventPublisher).publishEvent(event.capture());
@@ -235,7 +240,7 @@ class WorkspaceMemberServiceTest {
 
     @Test
     @DisplayName("Accept with a new email creates the user (encoded password) and the membership")
-    void acceptCreatesUserAndMembership() {
+    void acceptCreatesUserAndMembership() throws Exception {
         MemberInvite invite = new MemberInvite();
         invite.setWorkspace(workspace);
         invite.setInvitedEmail("nova@obra.com");
@@ -273,6 +278,11 @@ class WorkspaceMemberServiceTest {
         assertNotNull(membership.getValue().getAcceptedAt());
 
         assertTrue(invite.isAccepted());
+        verify(notificationService).notifyUser(
+                ACTOR_ID,
+                NotificationType.INVITE_ACCEPTED,
+                "Convite aceito",
+                "Nova Pessoa aceitou o convite para o workspace \"Construtora Teste\".");
     }
 
     // ---------- hierarquia ----------
@@ -316,7 +326,7 @@ class WorkspaceMemberServiceTest {
         WorkspaceMember target = memberRow(9L, 33L, WorkspaceRole.MEMBER);
         when(memberRepository.findById(9L)).thenReturn(Optional.of(target));
         when(memberRepository.save(any(WorkspaceMember.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(userRepository.findById(33L)).thenReturn(Optional.empty()); // só para montar o response
+        when(userRepository.findById(33L)).thenReturn(Optional.empty());
 
         service.deactivateMember(ownerCtx(), ACTOR_ID, 9L);
 
