@@ -23,7 +23,17 @@ $env:JAVA_HOME = $javaHome
 $env:Path = (Join-Path $javaHome 'bin') + ';' + $env:Path
 
 $javaExe = Join-Path $javaHome 'bin\java.exe'
-$javaVersionOutput = cmd.exe /c "\"$javaExe\" -version 2>&1"
+# java -version escreve no STDERR por design (comportamento histórico da JVM).
+# Com $ErrorActionPreference = 'Stop' no escopo do script, o "2>&1" abaixo faria
+# essa saída virar um ErrorRecord terminante e derrubar o script na primeira
+# linha do banner de versão. Por isso relaxamos o EAP só para esta chamada.
+$previousEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+    $javaVersionOutput = (& $javaExe -version 2>&1 | Out-String)
+} finally {
+    $ErrorActionPreference = $previousEap
+}
 if ($javaVersionOutput -notmatch 'version "2[1-9]') {
     throw "O Java encontrado em '$javaHome' não é 21+. Saída: $($javaVersionOutput -join ' ')"
 }
@@ -44,6 +54,7 @@ if ($cachedMaven) {
 
 $stdoutLog = Join-Path $logsDir 'run-local.log'
 $stderrLog = Join-Path $logsDir 'run-local-err.log'
+Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
 
 $mavenArgs = @()
 if (Test-Path $settingsPath) {
