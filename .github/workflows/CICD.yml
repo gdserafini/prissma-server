@@ -30,12 +30,17 @@ jobs:
             exit 1
           fi
           echo "Found jar: $JAR_PATH"
-          echo "jar-path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+          # O App Service (Java SE) espera o artefato como app.jar em
+          # /home/site/wwwroot. Publicar com o nome versionado obriga a repetir a
+          # versao no Startup Command do portal, e qualquer bump de versao no pom
+          # quebra o boot com "Unable to access jarfile".
+          cp "$JAR_PATH" app.jar
+          ls -la app.jar
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: java-app
-          path: ${{ steps.locate-jar.outputs.jar-path }}
+          path: app.jar
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -50,5 +55,5 @@ jobs:
         with:
           app-name: 'testjavawebapp'
           slot-name: 'Production'
-          package: '*.jar'
+          package: 'app.jar'
           publish-profile: ${{ secrets.publish_profile }}
