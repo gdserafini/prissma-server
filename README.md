@@ -31,25 +31,27 @@ disponivel em `http://localhost:8080`.
 
 ## Cloud Run + Neon PostgreSQL
 
-O backend nao precisa ter credenciais do Neon versionadas no GitHub. O Cloud Run
-injeta as configuracoes em tempo de execucao por variaveis de ambiente.
+O backend aceita diretamente a connection string entregue pelo Neon. Nao e
+necessario separar host, usuario e senha em variaveis diferentes.
 
-No Neon, copie os dados da conexao. Uma URL fornecida pelo Neon costuma ter este
-formato:
-
-```text
-postgresql://USUARIO:SENHA@HOST/neondb?sslmode=require
-```
-
-Para o Spring Boot, use o formato JDBC e configure no Cloud Run:
+No Neon, copie a connection string em **Connect**. Ela costuma ter este formato:
 
 ```text
-SPRING_DATASOURCE_URL=jdbc:postgresql://HOST:5432/neondb?sslmode=require
-SPRING_DATASOURCE_USERNAME=USUARIO
-SPRING_DATASOURCE_PASSWORD=SENHA
-SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5
-SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=0
+postgresql://USUARIO:SENHA@HOST/BANCO?sslmode=require&channel_binding=require
 ```
+
+No Cloud Run, configure somente:
+
+```text
+DATABASE_URL=postgresql://USUARIO:SENHA@HOST/BANCO?sslmode=require&channel_binding=require
+```
+
+A aplicacao converte internamente a URL do Neon para o formato JDBC esperado
+pelo driver PostgreSQL, extrai usuario e senha e traduz `channel_binding` para
+a propriedade JDBC `channelBinding`.
+
+O pool Hikari usa no maximo 5 conexoes e nao mantem conexoes ociosas por
+padrao, comportamento adequado para o Cloud Run e para um banco serverless.
 
 O Flyway continua habilitado e executa automaticamente as migrations em
 `src/main/resources/db/migration` quando a aplicacao inicia.
@@ -68,4 +70,5 @@ PASSWORD_RESET_FRONTEND_URL
 ```
 
 Nunca coloque senhas, tokens ou connection strings reais em
-`application.yaml`, `docker-compose.yaml` ou arquivos versionados.
+`application.yaml`, `docker-compose.yaml` ou arquivos versionados. No Cloud
+Run, prefira fornecer `DATABASE_URL` por Secret Manager.
