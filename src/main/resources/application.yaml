@@ -26,6 +26,11 @@ app:
         - image/webp
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
+database:
+  # Aceita diretamente a connection string entregue pelo Neon:
+  # postgresql://USUARIO:SENHA@HOST/BANCO?sslmode=require&channel_binding=require
+  url: ${DATABASE_URL:postgresql://prissma:prissma@localhost:5432/prissma}
+
 openai:
   image:
     # Nunca versione uma chave real. Defina OPENAI_API_KEY no ambiente.
@@ -40,15 +45,6 @@ server:
 spring:
   application:
     name: prissma-server
-  datasource:
-    # Em desenvolvimento local, os defaults continuam apontando para localhost.
-    # No Cloud Run, configure estas variaveis com os dados do Neon.
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/prissma}
-    username: ${SPRING_DATASOURCE_USERNAME:prissma}
-    password: ${SPRING_DATASOURCE_PASSWORD:prissma}
-    hikari:
-      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:5}
-      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:0}
   jpa:
     hibernate:
       ddl-auto: validate
